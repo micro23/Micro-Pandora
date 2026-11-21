@@ -24,12 +24,15 @@ Item {
   property string captureError: ""
 
   property var levels: blankLevels()
+  property var displayLevels: blankLevels()
+  property var peakLevels: blankLevels()
+  property bool settling: false
+  readonly property bool animateLevels: active && playing && !Commons.Style.reduceMotion
 
   readonly property string runner: Api.helperPath(Qt.resolvedUrl("../helpers/cava-run"))
 
   function nextMode() {
     modeIndex = (modeIndex + 1) % modeNames.length
-    if (!Commons.Style.reduceMotion) revealMode.restart()
   }
 
   function refreshMonitor() {
@@ -74,18 +77,23 @@ Item {
     var parts = String(line || "").replace(/;+$/, "").trim().split(";")
     if (parts.length < barCount) return
     var next = []
+    var changed = levels.length !== barCount
     for (var i = 0; i < root.barCount; i++) {
       var raw = Number(parts[i] || 0)
       if (!isFinite(raw)) raw = 0
-      next.push(Math.max(0.03, Math.pow(Api.clampUnit(raw / 100), 0.70)))
+      var level = Math.max(0.03, Math.pow(Api.clampUnit(raw / 100), 0.70))
+      next.push(level)
+      changed = changed || level !== levels[i]
     }
-    levels = next
+    if (changed) levels = next
   }
 
-  function gradientColor(index) {
-    var position = index / Math.max(1, barCount - 1) * (barColors.length - 1)
-    var start = barColors[Math.floor(position)]
-    var end = barColors[Math.ceil(position)]
+  function gradientColor(index, circular) {
+    if (!barColors.length) return dimColor
+    var position = circular ? index / Math.max(1, barCount) * barColors.length
+      : index / Math.max(1, barCount - 1) * (barColors.length - 1)
+    var start = barColors[Math.floor(position) % barColors.length]
+    var end = barColors[Math.ceil(position) % barColors.length]
     var fraction = position % 1
     return Qt.rgba(
       start.r + (end.r - start.r) * fraction,
@@ -93,6 +101,49 @@ Item {
       start.b + (end.b - start.b) * fraction,
       1
     )
+  }
+
+  function settleLevels(seconds) {
+    var elapsed = Math.max(0.001, Math.min(0.05, seconds))
+    var attack = 1 - Math.exp(-elapsed / 0.034)
+    var release = 1 - Math.exp(-elapsed / 0.13)
+    var next = []
+    var peaks = []
+    var moving = false
+    for (var i = 0; i < barCount; i++) {
+      var target = levels[i] || 0.03
+      var previous = displayLevels[i] || 0.03
+      var value = previous + (target - previous) * (target > previous ? attack : release)
+      if (Math.abs(target - value) < 0.004) value = target
+      var peak = Math.max(value, target, (peakLevels[i] || value) - elapsed * 0.89)
+      next.push(value)
+      peaks.push(peak)
+      moving = moving || value !== target || peak > value + 0.004
+    }
+    displayLevels = next
+    peakLevels = peaks
+    settling = moving
+  }
+
+  onLevelsChanged: {
+    if (animateLevels) settling = true
+    else {
+      displayLevels = levels
+      peakLevels = levels
+    }
+  }
+
+  onAnimateLevelsChanged: {
+    if (!animateLevels) {
+      settling = false
+      displayLevels = levels
+      peakLevels = levels
+    }
+  }
+
+  FrameAnimation {
+    running: root.animateLevels && root.settling
+    onTriggered: root.settleLevels(frameTime)
   }
 
   function heightLimit(barCenter, barWidth) {
@@ -152,125 +203,103 @@ Item {
 
   onPlayingChanged: if (!playing) levels = blankLevels()
 
-  NumberAnimation {
-    id: revealMode
-    target: modeLayer
-    property: "opacity"
-    from: 0.48
-    to: 1
-    duration: Commons.Style.duration(180)
-    easing.type: Easing.OutCubic
-  }
-
   Item {
-    id: modeLayer
     anchors.fill: parent
     visible: !root.captureError
 
     Row {
       id: row
       anchors.fill: parent
-      visible: root.modeIndex === 0
+      opacity: root.modeIndex === 0 ? 1 : 0
+      visible: root.modeIndex === 0 || opacity > 0.01
       spacing: Math.max(1, Math.floor(width / root.barCount * 0.22))
+
+      Behavior on opacity {
+        NumberAnimation { duration: Commons.Style.duration(220); easing.type: Easing.OutCubic }
+      }
 
       Repeater {
         model: row.visible ? root.barCount : 0
-        Rectangle {
-          id: spectrumBar
+        Item {
+          id: band
           required property int index
           readonly property color tone: root.gradientColor(index)
           readonly property real availableHeight: root.playing
             ? root.heightLimit(x + width / 2, width) : root.centerHeight
           width: Math.max(3, (row.width - row.spacing * (root.barCount - 1)) / root.barCount)
-          height: Math.max(6, availableHeight * (root.levels[index] || 0.03))
-          anchors.bottom: parent.bottom
-          radius: Math.max(1, width / 2)
-          color: root.playing ? tone : root.dimColor
-          gradient: root.playing && root.shadedBars ? barShading : null
-          opacity: root.playing ? 0.95 : 0.28
+          height: row.height
 
-          Gradient {
-            id: barShading
-            GradientStop { position: 0; color: Qt.lighter(spectrumBar.tone, 1.16) }
-            GradientStop { position: 0.24; color: spectrumBar.tone }
-            GradientStop { position: 1; color: Qt.darker(spectrumBar.tone, 1.66) }
+          Rectangle {
+            id: spectrumBar
+            width: parent.width
+            height: Math.max(4, band.availableHeight * (root.displayLevels[band.index] || 0.03))
+            anchors.bottom: parent.bottom
+            radius: Math.max(1, width / 2)
+            color: root.playing ? band.tone : root.dimColor
+            gradient: root.playing && root.shadedBars ? barShading : null
+            opacity: root.playing ? 0.92 : 0.24
+
+            Gradient {
+              id: barShading
+              GradientStop { position: 0; color: Qt.lighter(band.tone, 1.27) }
+              GradientStop { position: 0.34; color: band.tone }
+              GradientStop { position: 1; color: Qt.darker(band.tone, 1.95) }
+            }
           }
 
-          Behavior on height {
-            NumberAnimation { duration: Commons.Style.duration(70); easing.type: Easing.OutQuad }
-          }
-        }
-      }
-    }
-
-    Item {
-      id: mirror
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.bottom: parent.bottom
-      height: root.centerHeight
-      visible: root.modeIndex === 1
-
-      Rectangle {
-        width: parent.width
-        height: 1
-        anchors.verticalCenter: parent.verticalCenter
-        color: root.dimColor
-        opacity: 0.24
-      }
-
-      Repeater {
-        model: mirror.visible ? root.barCount : 0
-        Rectangle {
-          id: mirrorBar
-          required property int index
-          readonly property color tone: root.playing ? root.gradientColor(index) : root.dimColor
-          width: Math.max(2, mirror.width / root.barCount * 0.62)
-          height: Math.max(width / 2, mirror.height * 0.88 * (root.levels[index] || 0.03))
-          x: (index + 0.5) * mirror.width / root.barCount - width / 2
-          y: (mirror.height - height) / 2
-          radius: width / 2
-          opacity: root.playing ? 0.92 : 0.34
-          gradient: Gradient {
-            GradientStop { position: 0; color: mirrorBar.tone }
-            GradientStop { position: 0.5; color: Qt.lighter(mirrorBar.tone, 1.35) }
-            GradientStop { position: 1; color: mirrorBar.tone }
-          }
-          Behavior on height {
-            NumberAnimation { duration: Commons.Style.duration(70); easing.type: Easing.OutQuad }
+          Rectangle {
+            readonly property real peakHeight: band.availableHeight * (root.peakLevels[band.index] || 0)
+            readonly property real gap: peakHeight - spectrumBar.height
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Math.max(0, band.height - peakHeight - height)
+            width: Math.max(2, parent.width * 0.73)
+            height: Math.max(1, Math.min(3, band.width * 0.18))
+            radius: height / 2
+            color: Qt.lighter(band.tone, 1.33)
+            visible: root.animateLevels && peakHeight > 12 && gap > 5
+            opacity: Math.min(0.75, gap / 38)
           }
         }
       }
     }
 
-    Item {
-      id: orbit
+    MirrorRibbon {
+      anchors.fill: parent
+      centerHeight: root.centerHeight
+      heightLimit: root.heightLimit
+      opacity: root.modeIndex === 1 ? 1 : 0
+      visible: root.modeIndex === 1 || opacity > 0.01
+      levels: visible ? root.displayLevels : []
+      low: root.playing ? root.gradientColor(0) : root.dimColor
+      mid: root.playing ? root.gradientColor((root.barCount - 1) / 2) : root.dimColor
+      high: root.playing ? root.gradientColor(root.barCount - 1) : root.dimColor
+      playing: root.playing
+
+      Behavior on opacity {
+        NumberAnimation { duration: Commons.Style.duration(220); easing.type: Easing.OutCubic }
+      }
+    }
+
+    OrbitBands {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       height: root.centerHeight
-      visible: root.modeIndex === 2
-      readonly property real radiusX: Math.min(width * 0.37, height * 1.35)
-      readonly property real radiusY: height * 0.27
+      opacity: root.modeIndex === 2 ? 1 : 0
+      visible: root.modeIndex === 2 || opacity > 0.01
+      levels: visible ? root.displayLevels : []
+      tones: {
+        if (!visible) return []
+        var colors = []
+        for (var i = 0; i < root.barCount; i++)
+          colors.push(root.playing ? root.gradientColor(i, true) : root.dimColor)
+        return colors
+      }
+      guideColor: root.playing ? root.gradientColor((root.barCount - 1) / 2) : root.dimColor
+      playing: root.playing
 
-      Repeater {
-        model: orbit.visible ? root.barCount : 0
-        Rectangle {
-          required property int index
-          readonly property real angle: index / root.barCount * 2 * Math.PI - Math.PI / 2
-          width: Math.max(3, Math.min(Commons.Style.space(8), orbit.height * 0.045))
-          height: Math.max(width, orbit.height * 0.20 * (root.levels[index] || 0.03) + width)
-          x: orbit.width / 2 + Math.cos(angle) * orbit.radiusX - width / 2
-          y: orbit.height / 2 + Math.sin(angle) * orbit.radiusY - height
-          rotation: (angle + Math.PI / 2) * 180 / Math.PI
-          transformOrigin: Item.Bottom
-          radius: width / 2
-          color: root.playing ? root.gradientColor(index) : root.dimColor
-          opacity: root.playing ? 0.95 : 0.34
-          Behavior on height {
-            NumberAnimation { duration: Commons.Style.duration(70); easing.type: Easing.OutQuad }
-          }
-        }
+      Behavior on opacity {
+        NumberAnimation { duration: Commons.Style.duration(220); easing.type: Easing.OutCubic }
       }
     }
   }

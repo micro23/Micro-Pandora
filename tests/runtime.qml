@@ -33,6 +33,28 @@ ShellRoot {
         visualizer.parseFrame("72;".repeat(55) + "100;")
         root.check(visualizer.levels[0] < 0.9 && visualizer.levels[55] === 1,
                    "loud bands retain headroom")
+        root.check(visualizer.displayLevels === visualizer.levels,
+                   "a hidden visualizer applies new levels without animation")
+        visualizer.displayLevels = visualizer.blankLevels()
+        visualizer.peakLevels = visualizer.blankLevels()
+        visualizer.settleLevels(0.016)
+        var risingBand = visualizer.displayLevels[55]
+        root.check(risingBand > 0.06 && risingBand < 1 && visualizer.peakLevels[55] === 1,
+                   "band attack eases upward with a separate peak marker")
+        visualizer.parseFrame("0;".repeat(56))
+        visualizer.displayLevels = Array(56).fill(risingBand)
+        visualizer.peakLevels = Array(56).fill(1)
+        visualizer.settleLevels(0.016)
+        root.check(visualizer.displayLevels[55] < risingBand
+                   && visualizer.peakLevels[55] > visualizer.displayLevels[55],
+                   "peak marker falls more slowly than the band")
+        for (var frame = 0; frame < 40; frame++) visualizer.settleLevels(0.05)
+        root.check(!visualizer.settling && visualizer.displayLevels[55] === 0.03
+                   && visualizer.peakLevels[55] === 0.03,
+                   "a quiet spectrum settles and stops requesting frames")
+        var quietLevels = visualizer.levels
+        visualizer.parseFrame("0;".repeat(56))
+        root.check(quietLevels === visualizer.levels, "repeated silence leaves the spectrum settled")
         visualizer.destroy()
 
         var service = root.component("Service").createObject(null)
