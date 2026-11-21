@@ -18,15 +18,26 @@ Button {
   iconSize: Style.font.body
   background: currentStation || selected ? Util.alpha(accent, 0.16) : "transparent"
   color: hot ? Style.hoverFillFor(foreground, accent) : background
+  gradient: currentStation || selected ? stationWash : null
+
+  Gradient {
+    id: stationWash
+    orientation: Gradient.Horizontal
+    GradientStop { position: 0; color: Qt.tint(root.color, Util.alpha(root.accent, 0.16)) }
+    GradientStop { position: 0.72; color: root.color }
+    GradientStop { position: 1; color: Qt.tint(root.color, Util.alpha(root.accent, 0.02)) }
+  }
 
   Rectangle {
-    visible: root.currentStation || root.selected
+    opacity: root.currentStation ? 1 : root.selected ? 0.52 : 0
+    visible: opacity > 0
     anchors.left: parent.left
     anchors.leftMargin: Style.space(3)
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(3)
     height: parent.height * 0.57
     radius: width / 2
-    color: Util.alpha(root.accent, root.currentStation ? 1 : 0.48)
+    color: root.accent
+    Behavior on opacity { NumberAnimation { duration: Style.duration(170) } }
   }
 }

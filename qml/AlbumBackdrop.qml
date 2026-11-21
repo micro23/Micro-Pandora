@@ -10,16 +10,17 @@ Rectangle {
   property string artSource: ""
 
   Behavior on baseColor {
-    ColorAnimation { duration: Commons.Style.duration(260); easing.type: Easing.OutCubic }
+    ColorAnimation { duration: Commons.Style.duration(295); easing.type: Easing.OutCubic }
   }
   Behavior on secondaryColor {
-    ColorAnimation { duration: Commons.Style.duration(260); easing.type: Easing.OutCubic }
+    ColorAnimation { duration: Commons.Style.duration(295); easing.type: Easing.OutCubic }
   }
 
   gradient: Gradient {
     orientation: Gradient.Horizontal
     GradientStop { position: 0; color: root.baseColor }
-    GradientStop { position: 0.25; color: root.baseColor }
+    GradientStop { position: 0.22; color: root.baseColor }
+    GradientStop { position: 0.62; color: Qt.tint(root.baseColor, Commons.Util.alpha(root.secondaryColor, 0.42)) }
     GradientStop { position: 1; color: root.secondaryColor }
   }
 
@@ -58,16 +59,16 @@ Rectangle {
         width: coverTexture.width
         height: coverTexture.height
         scale: parent.effectScale
-        visible: coverTexture.status === Image.Ready
+        visible: coverTexture.hasArtwork
         source: coverTexture
         autoPaddingEnabled: false
         blurEnabled: true
-        blur: 0.78
+        blur: 0.86
         blurMax: 20
         blurMultiplier: 1.0
         brightness: -0.36
-        saturation: -0.10
-        opacity: 0.27
+        saturation: -0.18
+        opacity: 0.23
         maskEnabled: root.radius > 0
         maskSource: roundedMask
       }
@@ -78,9 +79,10 @@ Rectangle {
     anchors.fill: parent
     radius: root.radius
     gradient: Gradient {
-      GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 0.18) }
-      GradientStop { position: 0.32; color: Qt.rgba(0, 0, 0, 0.12) }
-      GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.57) }
+      GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 0.24) }
+      GradientStop { position: 0.36; color: Qt.rgba(0, 0, 0, 0.08) }
+      GradientStop { position: 0.73; color: Qt.rgba(0, 0, 0, 0.33) }
+      GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.72) }
     }
   }
 }

@@ -186,7 +186,7 @@ BarWidget {
           renderType: Text.NativeRendering
 
           XAnimator on x {
-            running: root.pandora && root.pandora.scrollBarText
+            running: !Style.reduceMotion && root.pandora && root.pandora.scrollBarText
               && implicitWidth > scrollClip.width && !root.popupOpen && !root.vertical
             loops: Animation.Infinite
             duration: Math.round(Math.max(6000, implicitWidth * 25))
@@ -259,6 +259,20 @@ BarWidget {
     readonly property color muted: artPalette.muted || root.muted
     readonly property color accent: artPalette.accent || Commons.Color.accent
     readonly property color accentAlt: artPalette.accentAlt || accent
+
+    Binding on borderSpec {
+      when: !!popup.artPalette.accent
+      value: {
+        var outline = Border.flat(Util.alpha(popup.accent, 0.68), Style.space(2))
+        outline.gradient = {
+          colors: [Util.alpha(popup.accentAlt, 0.82), Util.alpha(popup.foreground, 0.24),
+            Util.alpha(popup.accent, 0.74)],
+          angle: 38,
+          enabled: true
+        }
+        return outline
+      }
+    }
 
     AlbumBackdrop {
       anchors.fill: contentColumn
@@ -409,6 +423,7 @@ BarWidget {
           accent: popup.accent
           accentAlt: popup.accentAlt
           tinted: !!popup.artPalette.accentAlt
+          glow: miniArt.hasArtwork
 
           ArtImage {
             id: miniArt
@@ -420,13 +435,14 @@ BarWidget {
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true
-            visible: status === Image.Ready
+            fadeIn: true
+            visible: hasArtwork
           }
 
           Text {
             textFormat: Text.PlainText
             anchors.centerIn: parent
-            visible: miniArt.status !== Image.Ready
+            visible: !miniArt.hasArtwork
             text: "󰝚"
             color: popup.foreground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
@@ -564,6 +580,8 @@ BarWidget {
         TransportButton {
           glyphText: root.pandora && root.pandora.playing ? "󰏤" : "󰐊"
           glyphSize: Style.font.iconLarge
+          controlSize: Style.space(38)
+          radius: width / 2
           foreground: popup.artPalette.accent || popup.foreground
           accent: popup.accent
           selected: true

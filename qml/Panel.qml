@@ -807,7 +807,7 @@ Item {
                       accent: root.accent
                       accentAlt: root.accentAlt
                       tinted: !!root.artPalette.accentAlt
-                      glow: heroArt.status === Image.Ready
+                      glow: heroArt.hasArtwork
 
                       ArtImage {
                         id: heroArt
@@ -819,13 +819,14 @@ Item {
                         fillMode: Image.PreserveAspectFit
                         asynchronous: true
                         cache: true
-                        visible: status === Image.Ready
+                        fadeIn: true
+                        visible: hasArtwork
                       }
 
                       Text {
                         textFormat: Text.PlainText
                         anchors.centerIn: parent
-                        visible: heroArt.status !== Image.Ready
+                        visible: !heroArt.hasArtwork
                         text: "󰎈"
                         color: root.muted
                         font.family: root.fontFamily
@@ -1126,13 +1127,14 @@ Item {
                   fillMode: Image.PreserveAspectFit
                   asynchronous: true
                   cache: true
-                  visible: status === Image.Ready
+                  fadeIn: true
+                  visible: hasArtwork
                 }
 
                 Text {
                   textFormat: Text.PlainText
                   anchors.centerIn: parent
-                  visible: footerArtImage.status !== Image.Ready
+                  visible: !footerArtImage.hasArtwork
                   text: "󰎈"
                   color: root.muted
                   font.family: root.fontFamily

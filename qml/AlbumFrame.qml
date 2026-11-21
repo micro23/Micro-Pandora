@@ -16,8 +16,9 @@ BorderSurface {
     if (!root.tinted) return Border.controlSpec("normal", root.foreground, root.accent)
     var outline = Border.flat(Util.alpha(root.accent, 0.72), Style.space(2))
     outline.gradient = {
-      colors: [Util.alpha(root.accent, 0.80), Util.alpha(root.accentAlt, 0.78)],
-      angle: 45,
+      colors: [Util.alpha(root.accent, 0.90), Util.alpha(root.foreground, 0.22),
+        Util.alpha(root.accentAlt, 0.68), Util.alpha(root.accentAlt, 0.88)],
+      angle: 52,
       enabled: true
     }
     return outline
@@ -28,8 +29,8 @@ BorderSurface {
     shadowEnabled: true
     shadowColor: Util.alpha(root.accentAlt, 0.36)
     shadowBlur: 1
-    shadowVerticalOffset: Style.space(7)
-    blurMax: 24
+    shadowVerticalOffset: Style.space(9)
+    blurMax: 28
     blurMultiplier: 1
   }
 }

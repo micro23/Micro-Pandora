@@ -17,6 +17,14 @@ Button {
   height: controlSize
   horizontalPadding: 0
   verticalPadding: 0
+  gradient: selected && enabled ? transportShine : null
+
+  Gradient {
+    id: transportShine
+    GradientStop { position: 0; color: Qt.tint(root.color, Util.alpha(root.accent, root.hot ? 0.25 : 0.15)) }
+    GradientStop { position: 0.36; color: Qt.tint(root.color, Util.alpha(root.accent, 0.09)) }
+    GradientStop { position: 1; color: root.color }
+  }
 
   readonly property int renderedGlyphSize: Math.max(1, Math.round(glyphSize))
   readonly property real tightGlyphWidth: Math.max(1,
