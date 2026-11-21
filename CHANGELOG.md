@@ -5,6 +5,8 @@
 - Add Pandora sign-in to Settings using Pithos’s desktop keyring format.
 - Start Pithos on a hidden workspace and add a persistent show/hide control.
 - Register a Micro-Pandora app launcher with a Settings action and add one-command dependency setup.
+- Give Spectrum shaded peaks, Mirror a pair of animated ribbons, and Orbit a set of segmented rings that respond to playback.
+- Carry the album palette through the mini player, artwork frame, station list, and playback controls. Keep the last cover visible until the next one is ready.
 
 ## v0.3.0
 

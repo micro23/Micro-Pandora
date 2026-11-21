@@ -14,7 +14,6 @@ Flickable {
   required property color accentAlt
   required property color background
   property bool themed: false
-  readonly property bool editing: emailField.activeFocus || passwordField.activeFocus
   readonly property bool formReady: account && account.ready
   readonly property bool busy: !!(account && account.busy)
 
@@ -94,24 +93,19 @@ Flickable {
           onAccepted: passwordField.forceActiveFocus()
         }
 
-        RowLayout {
+        TextField {
+          id: passwordField
           Layout.fillWidth: true
-          spacing: Style.space(6)
-
-          TextField {
-            id: passwordField
-            Layout.fillWidth: true
-            Layout.preferredHeight: Style.space(40)
-            enabled: root.formReady && !root.busy
-            placeholderText: root.account && root.account.email ? "New password" : "Pandora password"
-            Accessible.name: "Pandora password"
-            password: true
-            inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
-            maximumLength: 4096
-            foreground: root.foreground
-            accent: root.accent
-            onAccepted: root.submit()
-          }
+          Layout.preferredHeight: Style.space(40)
+          enabled: root.formReady && !root.busy
+          placeholderText: "Pandora password"
+          Accessible.name: "Pandora password"
+          password: true
+          inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
+          maximumLength: 4096
+          foreground: root.foreground
+          accent: root.accent
+          onAccepted: root.submit()
         }
 
         Button {
