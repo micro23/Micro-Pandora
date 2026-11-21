@@ -293,7 +293,7 @@ BarWidget {
         Column {
           id: heroLabels
           width: Math.max(40, parent.width - heroIcon.width - miniClose.width
-            - miniSwitch.width - parent.spacing * 3)
+            - miniSwitch.width - miniSettings.width - parent.spacing * 4)
           spacing: Style.space(2)
           anchors.verticalCenter: parent.verticalCenter
 
@@ -324,6 +324,16 @@ BarWidget {
             font.letterSpacing: 1.2
             elide: Text.ElideRight
           }
+        }
+
+        Button {
+          id: miniSettings
+          iconText: "󰒓"
+          foreground: popup.foreground
+          accent: popup.accentAlt
+          anchors.verticalCenter: parent.verticalCenter
+          tooltipText: "Pandora settings"
+          onClicked: if (root.pandora) root.pandora.openFullPlayer(root.thisScreenName(), "setup")
         }
 
         Button {
@@ -358,12 +368,12 @@ BarWidget {
         visible: !root.pandora || !root.pandora.connected
 
         Button {
-          text: root.pandora && root.pandora.launching ? "Opening Pithos…" : "Open Pithos"
+          text: root.pandora && root.pandora.launching ? "Connecting…" : "Pandora settings"
           iconText: "󰍂"
           foreground: popup.foreground
           accent: popup.accent
           enabled: root.pandora && !root.pandora.launching
-          onClicked: root.pandora.raisePithos()
+          onClicked: root.pandora.openFullPlayer(root.thisScreenName(), "setup")
         }
       }
 

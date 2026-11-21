@@ -3,8 +3,7 @@
 ## Sign in
 
 1. Click the bar music-note icon.
-2. If Pithos is not signed in, use **Settings → Open Pithos** and log in with
-   your Pandora account.
+2. If Pandora is not connected, enter your account email and password in **Settings** and select **Save and connect**.
 3. After login, Micro-Pandora should show the current station and track.
 
 You should only need the Pithos window for that first login.

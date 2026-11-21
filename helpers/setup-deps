@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+directory=$(cd "$(dirname "$0")" && pwd)
+desktop=io.github.micro23.MicroPandora.desktop
+applications="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+icon_directory="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/256x256/apps"
+
+install_launcher() {
+  mkdir -p "$applications"
+  if ! cmp -s "$directory/$desktop" "$applications/$desktop"; then
+    install -m 644 "$directory/$desktop" "$applications/$desktop"
+  fi
+  mkdir -p "$icon_directory"
+  if ! cmp -s "$directory/micro-pandora.png" "$icon_directory/io.github.micro23.MicroPandora.png"; then
+    install -m 644 "$directory/micro-pandora.png" "$icon_directory/io.github.micro23.MicroPandora.png"
+  fi
+}
+
+missing_packages() {
+  local package
+  for package in pithos cava python-pillow python-gobject libsecret; do
+    if ! pacman -Q -- "$package" >/dev/null 2>&1; then printf '%s\n' "$package"; fi
+  done
+  if ! command -v gnome-keyring-daemon >/dev/null &&
+    ! busctl --user --timeout=1s get-property org.freedesktop.secrets /org/freedesktop/secrets \
+      org.freedesktop.Secret.Service Collections >/dev/null 2>&1; then
+    printf '%s\n' gnome-keyring
+  fi
+}
+
+case "${1:---check}" in
+  --check)
+    missing_packages | jq -Rsc '{missing:split("\n")|map(select(length>0))}'
+    ;;
+  --launcher)
+    install_launcher
+    ;;
+  --install)
+    command -v omarchy >/dev/null || { printf 'This installer requires Omarchy.\n' >&2; exit 1; }
+    mapfile -t missing < <(missing_packages)
+    official=()
+    needs_pithos=false
+    for package in "${missing[@]}"; do
+      if [[ $package == pithos ]]; then needs_pithos=true; else official+=("$package"); fi
+    done
+    if (( ${#official[@]} )); then omarchy pkg add "${official[@]}"; fi
+    if "$needs_pithos"; then omarchy pkg aur add pithos; fi
+    if pacman -Q gnome-keyring >/dev/null 2>&1 &&
+      ! busctl --user --timeout=1s get-property org.freedesktop.secrets /org/freedesktop/secrets \
+        org.freedesktop.Secret.Service Collections >/dev/null 2>&1; then
+      systemctl --user start gnome-keyring-daemon.socket
+    fi
+    remaining=$(missing_packages)
+    if [[ -n $remaining ]]; then printf 'Setup still needs:\n%s\n' "$remaining" >&2; exit 1; fi
+    install_launcher
+    printf 'Micro-Pandora dependencies are ready.\n'
+    ;;
+  *) printf 'Usage: %s [--check|--install|--launcher]\n' "$0" >&2; exit 2 ;;
+esac

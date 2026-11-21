@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Micro-Pandora
+Comment=Listen to Pandora and browse your stations
+Exec=omarchy-shell io.github.dankestrick.omapandora.player openFromLauncher
+TryExec=omarchy-shell
+Icon=io.github.micro23.MicroPandora
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=Pandora;Radio;Music;
+Actions=Settings;
+
+[Desktop Action Settings]
+Name=Settings
+Exec=omarchy-shell io.github.dankestrick.omapandora.player openSettings

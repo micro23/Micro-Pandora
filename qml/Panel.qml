@@ -39,6 +39,7 @@ Item {
   readonly property string fontFamily: Style.font.family
   readonly property string displayFamily: "Adwaita Sans"
   readonly property bool connected: service && service.connected
+  readonly property var account: service && service.account ? service.account : null
   readonly property string playbackError: service ? service.commandError || service.statusError : ""
   readonly property bool miniMode: !!(service && service.displayMode === "mini")
   readonly property var filteredStations: {
@@ -69,10 +70,11 @@ Item {
   function open(payloadJson) {
     closingFromHost = false
     applyPreferredScreen()
+    var options = Api.parseStatus(payloadJson)
     opened = true
     browseTarget = "nowplaying"
-    currentTab = currentTab === "setup" ? "nowplaying" : currentTab
-    if (currentTab === "stations") currentTab = "nowplaying"
+    currentTab = options && options.page === "setup" ? "setup" : "nowplaying"
+    maybeOpenSetup()
     pinCursor = pinnedStations.length ? 0 : -1
     var list = keyboardStations
     var playingAt = service ? stationIndex(list, service.stationPath) : -1
@@ -111,6 +113,15 @@ Item {
   }
 
   function chooseTab(id) { currentTab = id }
+
+  function maybeOpenSetup() {
+    if (!opened || connected || currentTab !== "nowplaying" || !account || !account.checked) return
+    if (account.missing.length || (account.ready && !account.email)) currentTab = "setup"
+  }
+
+  function updateAccountPage() {
+    if (account) account.settingsOpen = opened && currentTab === "setup"
+  }
 
   function copyStations(src) {
     var out = []
@@ -283,8 +294,20 @@ Item {
     service.setVolume(value)
   }
 
-  onOpenedChanged: if (service) service.setUiVisible(root, opened)
-  Component.onDestruction: if (service) service.setUiVisible(root, false)
+  onOpenedChanged: {
+    if (service) service.setUiVisible(root, opened)
+    updateAccountPage()
+  }
+  onCurrentTabChanged: updateAccountPage()
+  Component.onDestruction: {
+    if (account) account.settingsOpen = false
+    if (service) service.setUiVisible(root, false)
+  }
+  Connections {
+    target: root.account
+    function onCheckedChanged() { root.maybeOpenSetup() }
+    function onLoadedChanged() { root.maybeOpenSetup() }
+  }
   onKeyboardStationsChanged: {
     if (stationCursor >= keyboardStations.length)
       stationCursor = Math.max(0, keyboardStations.length - 1)
@@ -335,6 +358,7 @@ Item {
         context: Qt.WindowShortcut
         autoRepeat: false
         enabled: root.opened && !root.shortcutHelpOpen
+          && root.currentTab !== "setup"
           && !(stationSearch.visible && stationSearch.activeFocus)
         onActivated: {
           root.chooseTab("nowplaying")
@@ -350,6 +374,15 @@ Item {
         if (root.shortcutHelpOpen) {
           if (event.key === Qt.Key_Escape || (ctrl && event.key === Qt.Key_Slash)) {
             root.shortcutHelpOpen = false
+            event.accepted = true
+          }
+          return
+        }
+
+        if (root.currentTab === "setup") {
+          if (event.key === Qt.Key_Escape) {
+            root.chooseTab("nowplaying")
+            keyRoot.forceActiveFocus()
             event.accepted = true
           }
           return
@@ -836,11 +869,11 @@ Item {
                         anchors.left: heroStage.compact ? parent.left : undefined
                         visible: !root.connected && !!root.service
                         enabled: root.service && !root.service.launching
-                        text: root.service && root.service.launching ? "Opening Pithos…" : "Open Pithos"
+                        text: root.service && root.service.launching ? "Connecting…" : "Pandora settings"
                         foreground: root.accent
                         accent: root.accent
                         bordered: true
-                        onClicked: root.service.raisePithos()
+                        onClicked: root.chooseTab("setup")
                       }
 
                       Text {
@@ -971,7 +1004,7 @@ Item {
                 width: Math.min(parent.width - Style.space(24), Style.space(460))
                 visible: searchFlick.visible && !root.filteredStations.length
                 textFormat: Text.PlainText
-                text: !root.connected ? "Open Pithos and sign in to load your stations."
+                text: !root.connected ? "Sign in through Settings to load your stations."
                   : root.stationFilter.trim() ? "No stations match your search." : "No stations are available."
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
@@ -980,27 +1013,17 @@ Item {
                 font.pixelSize: Style.font.subtitle
               }
 
-              Column {
+              Loader {
                 anchors.fill: parent
-                spacing: Style.space(12)
-                visible: root.currentTab === "setup"
-
-                Button {
-                  text: "Open Pithos"
-                  iconText: "󰍂"
+                active: root.opened && root.currentTab === "setup"
+                sourceComponent: PlayerSettings {
+                  account: root.account
                   foreground: root.foreground
-                  onClicked: if (root.service) root.service.raisePithos()
-                }
-
-                Text {
-                  width: parent.width
-                  visible: root.service && root.service.lastError !== ""
-                  textFormat: Text.PlainText
-                  text: root.service ? root.service.lastError : ""
-                  color: Commons.Color.urgent
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                  wrapMode: Text.WordWrap
+                  muted: root.muted
+                  accent: root.accent
+                  accentAlt: root.accentAlt
+                  background: root.background
+                  themed: !!root.artPalette.accent
                 }
               }
             }

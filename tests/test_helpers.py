@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PIL import Image
 
@@ -73,6 +73,152 @@ class PlayerCommandTests(unittest.TestCase):
                     with self.assertRaisesRegex(SystemExit, "was not replaced"):
                         pithosctl.save_pins()
                 self.assertEqual(path.read_text(), "unreadable")
+
+
+class AccountSetupTests(unittest.TestCase):
+    def test_account_records_email_only_after_password_is_in_keyring(self):
+        settings = Mock()
+        settings.is_writable.return_value = True
+        settings.set_string.return_value = True
+        operations = []
+        settings.set_string.side_effect = lambda key, value: operations.append((key, value)) or True
+        payload = {"email": " listener@example.invalid ", "password": 'dummy \\ " unicode é'}
+        with (
+            patch.object(sys, "stdin", io.StringIO(json.dumps(payload))),
+            patch.object(pithosctl, "pithos_settings", return_value=settings),
+            patch.object(pithosctl, "store_account_secret",
+                         side_effect=lambda email, password: operations.append(("keyring", email, password)) or True),
+        ):
+            result = pithosctl.save_account()
+        self.assertEqual(operations, [
+            ("keyring", "listener@example.invalid", payload["password"]),
+            ("email", "listener@example.invalid"),
+        ])
+        self.assertEqual(result, {"saved": True, "email": "listener@example.invalid"})
+
+    def test_locked_keyring_leaves_account_email_unchanged(self):
+        settings = Mock()
+        settings.is_writable.return_value = True
+        payload = {"email": "listener@example.invalid", "password": "dummy"}
+        with (
+            patch.object(sys, "stdin", io.StringIO(json.dumps(payload))),
+            patch.object(pithosctl, "pithos_settings", return_value=settings),
+            patch.object(pithosctl, "store_account_secret", return_value=False),
+            self.assertRaisesRegex(SystemExit, "Unlock it and try again"),
+        ):
+            pithosctl.save_account()
+        settings.set_string.assert_not_called()
+
+    def test_unconfigured_app_leaves_pithos_unlaunched(self):
+        with (
+            patch.object(pithosctl.os, "access", return_value=True),
+            patch.object(pithosctl, "account_status", return_value={"email": ""}),
+            patch.object(pithosctl.subprocess, "Popen") as launch,
+        ):
+            self.assertTrue(pithosctl.launch_pithos()["needsAccount"])
+        launch.assert_not_called()
+
+    def test_hidden_backend_launch_has_a_non_focusing_workspace_rule(self):
+        with (
+            patch.dict(os.environ, {"HYPRLAND_INSTANCE_SIGNATURE": "test"}),
+            patch.object(pithosctl.os, "access", return_value=True),
+            patch.object(pithosctl, "account_status", return_value={"email": "listener@example.invalid"}),
+            patch.object(pithosctl, "backend_visible", return_value=False),
+            patch.object(pithosctl, "session_bus", return_value=object()),
+            patch.object(pithosctl, "find_bus_name", return_value=None),
+            patch.object(pithosctl, "list_names", return_value=[]),
+            patch.object(pithosctl, "launched_pid", return_value=None),
+            patch.object(pithosctl, "dispatch_hyprland") as dispatch,
+        ):
+            self.assertTrue(pithosctl.launch_pithos()["launched"])
+        expression = dispatch.call_args.args[0]
+        self.assertIn("spawn-backend", expression)
+        self.assertIn("special:pithos silent", expression)
+        self.assertIn("no_initial_focus=true", expression)
+
+    def test_backend_visibility_is_private_and_defaults_to_hidden(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "private/settings.json"
+            with patch.object(pithosctl, "STATE_FILE", str(path)):
+                self.assertFalse(pithosctl.backend_visible())
+                pithosctl.set_backend_visible(True)
+                self.assertTrue(pithosctl.backend_visible())
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+                pithosctl.set_backend_visible(False)
+                self.assertFalse(pithosctl.backend_visible())
+
+    def test_reconnect_waits_for_the_old_backend_before_launching(self):
+        events = []
+        old = "org.mpris.MediaPlayer2.io.github.Pithos"
+        with (
+            patch.object(pithosctl, "session_bus", return_value=object()),
+            patch.object(pithosctl, "find_bus_name", side_effect=[old, old, None]),
+            patch.object(pithosctl, "list_names", return_value=[]),
+            patch.object(pithosctl, "launched_pid", return_value=None),
+            patch.object(pithosctl.time, "sleep", side_effect=lambda _: events.append("wait")),
+            patch.object(pithosctl, "call", side_effect=lambda *args: events.append(args[3])),
+            patch.object(pithosctl, "launch_pithos", side_effect=lambda: events.append("launch") or {"launched": True}),
+        ):
+            self.assertTrue(pithosctl.reconnect_pithos()["launched"])
+        self.assertEqual(events, ["Quit", "wait", "launch"])
+
+
+class LauncherTests(unittest.TestCase):
+    def test_launcher_install_is_idempotent_and_uses_the_app_icon(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {**os.environ, "XDG_DATA_HOME": tmp}
+            arguments = [ROOT / "helpers/setup-deps", "--launcher"]
+            subprocess.run(arguments, env=env, check=True)
+            entry = Path(tmp) / "applications/io.github.micro23.MicroPandora.desktop"
+            modified = entry.stat().st_mtime_ns
+            subprocess.run(arguments, env=env, check=True)
+            self.assertEqual(entry.stat().st_mtime_ns, modified)
+            self.assertIn("openFromLauncher", entry.read_text())
+            icon = Path(tmp) / "icons/hicolor/256x256/apps/io.github.micro23.MicroPandora.png"
+            self.assertTrue(icon.is_file())
+
+    def test_fresh_setup_installs_dependencies_before_enabling_the_app(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            binary = root / "bin"
+            binary.mkdir()
+            tools = {
+                "pacman": """#!/bin/sh
+for package do :; done
+grep -Fxq -- "$package" "$MICRO_SETUP_QA/packages" 2>/dev/null
+""",
+                "omarchy": """#!/bin/sh
+printf '%s\n' "$*" >> "$MICRO_SETUP_QA/events"
+if [ "$1" = pkg ]; then
+    shift
+    [ "$1" != aur ] || shift
+    shift
+    printf '%s\n' "$@" >> "$MICRO_SETUP_QA/packages"
+fi
+""",
+                "omarchy-shell": """#!/bin/sh
+printf '%s\n' "$*" >> "$MICRO_SETUP_QA/events"
+""",
+                "gnome-keyring-daemon": "#!/bin/sh\nexit 0\n",
+            }
+            for name, source in tools.items():
+                tool = binary / name
+                tool.write_text(source)
+                tool.chmod(0o755)
+            env = {**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"],
+                   "MICRO_SETUP_QA": tmp, "XDG_DATA_HOME": str(root / "data"),
+                   "XDG_CONFIG_HOME": str(root / "config")}
+            subprocess.run([ROOT / "scripts/setup.sh"], env=env, check=True, capture_output=True)
+            self.assertEqual((root / "events").read_text().splitlines(), [
+                "plugin validate " + str(ROOT),
+                "pkg add cava python-pillow python-gobject libsecret",
+                "pkg aur add pithos",
+                "shell rescanPlugins",
+                "plugin enable io.github.dankestrick.omapandora",
+            ])
+            plugin = root / "config/omarchy/plugins/io.github.dankestrick.omapandora"
+            self.assertTrue((plugin / "qml/PlayerSettings.qml").exists())
+            self.assertTrue((root / "data/applications/io.github.micro23.MicroPandora.desktop").exists())
 
 
 class VisualizerRouteTests(unittest.TestCase):

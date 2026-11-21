@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.0
+
+- Add Pandora sign-in to Settings using Pithos’s desktop keyring format.
+- Start Pithos on a hidden workspace and add a persistent show/hide control.
+- Register a Micro-Pandora app launcher with a Settings action and add one-command dependency setup.
+
 ## v0.3.0
 
 - Add Mirror and Orbit visualizers. Press V or click the visualizer name to cycle through views without interrupting playback.

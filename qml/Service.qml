@@ -25,7 +25,8 @@ Item {
   property var paletteColors: ({})
   property string paletteSnapshot: "{}"
   property bool daemonStartAttempted: false
-  property bool pithosOpenedExplicitly: false
+  property bool accountRestarting: false
+  readonly property alias account: accountController
   property bool wanted: false
   property string displayMode: "full" // "full" or "mini"
   property string preferredScreenName: ""
@@ -46,7 +47,7 @@ Item {
   onConnectedChanged: {
     if (connected) {
       launchDeadline.stop()
-      if (!pithosOpenedExplicitly) hidePithos()
+      applyBackendVisibility()
     }
   }
   readonly property bool playing: pithosPlayer ? pithosPlayer.isPlaying : status.status === "Playing"
@@ -179,7 +180,7 @@ Item {
     var action = pendingActions[0]
     pendingActions = pendingActions.slice(1)
     helperProc.action = action[0]
-    helperProc.command = helperCommand(12, action)
+    helperProc.command = helperCommand(action[0] === "reconnect" ? 24 : 12, action)
     helperProc.running = true
   }
 
@@ -205,6 +206,7 @@ Item {
   }
 
   function refresh() {
+    if ((!account.ready && !pithosPlayer) || accountRestarting) return
     statusProc.command = helperCommand(15, ["status"])
     statusProc.running = true
   }
@@ -291,9 +293,8 @@ Item {
   }
 
   function launchPithos() {
-    if (launching) return
+    if (launching || !account.ready || !account.email || account.busy) return
     commandError = ""
-    pithosOpenedExplicitly = false
     daemonStartAttempted = true
     runHelper(["launch"])
     launchDeadline.restart()
@@ -303,6 +304,19 @@ Item {
     if (!wanted) return
     if (connected) return
     launchPithos()
+  }
+
+  function reconnectAccount() {
+    accountRestarting = true
+    daemonStartAttempted = true
+    commandError = ""
+    applyStatus({})
+    runHelper(["reconnect"])
+  }
+
+  function applyBackendVisibility() {
+    if (account.ready && !account.showBackend && !account.changingWindow)
+      runHelper(["hide"])
   }
 
   function stopAndQuit() {
@@ -315,20 +329,6 @@ Item {
         pithosPlayer.togglePlaying()
     }
     runHelper(["quit"])
-  }
-
-  function hidePithos() {
-    try {
-      Hyprland.dispatch('hl.dsp.window.move({ window = hl.get_window("class:pithos"), workspace = "special:pithos", silent = true })')
-    } catch (e) {}
-  }
-
-  function raisePithos() {
-    pithosOpenedExplicitly = true
-    daemonStartAttempted = true
-    commandError = ""
-    runHelper(["open"])
-    if (!connected) launchDeadline.restart()
   }
 
   function focusedScreenName() {
@@ -375,7 +375,7 @@ Item {
     return true
   }
 
-  function openFullPlayer(screenName) {
+  function openFullPlayer(screenName, page) {
     if (!shell) return
     rememberScreen(screenName || focusedScreenName())
     for (var i = 0; i < playerSurfaces.length; i++) {
@@ -383,8 +383,9 @@ Item {
       if (surface && surface.opened) surface.close()
     }
     displayMode = "full"
-    if (typeof shell.summon === "function") shell.summon(pluginId, "{}")
-    else if (typeof shell.toggle === "function") shell.toggle(pluginId, "{}")
+    var payload = JSON.stringify({page: page || ""})
+    if (typeof shell.summon === "function") shell.summon(pluginId, payload)
+    else if (typeof shell.toggle === "function") shell.toggle(pluginId, payload)
   }
 
   function pinWindowToPreferredScreen() {
@@ -421,6 +422,14 @@ Item {
       root.openFullPlayer()
       return "ok"
     }
+    function openFromLauncher(): string {
+      root.openFullPlayer()
+      return "ok"
+    }
+    function openSettings(): string {
+      root.openFullPlayer("", "setup")
+      return "ok"
+    }
     function playPause(): string { root.togglePlayback(); return "ok" }
     function next(): string { root.next(); return "ok" }
     function love(): string { root.toggleLove(); return "ok" }
@@ -431,6 +440,7 @@ Item {
     stdout: StdioCollector { id: statusOut; waitForEnd: true }
     stderr: StdioCollector { id: statusErr; waitForEnd: true }
     onExited: function(code) {
+      if (root.accountRestarting) return
       var parsed = Api.parseStatus(statusOut.text)
       if (parsed && code === 0) {
         root.statusError = ""
@@ -450,6 +460,11 @@ Item {
     stdout: StdioCollector { waitForEnd: true }
     stderr: StdioCollector { id: helperErr; waitForEnd: true }
     onExited: function(code) {
+      if (action === "reconnect") {
+        root.accountRestarting = false
+        accountController.reconnectFinished(code === 0 ? ""
+          : String(helperErr.text || "Could not reconnect Pandora.").trim())
+      }
       if ((action === "launch" || action === "open") && (code !== 0 || root.connected))
         launchDeadline.stop()
       if (code !== 0) root.reportCommandError(helperErr.text)
@@ -460,6 +475,19 @@ Item {
 
   Process {
     id: pinMonProc
+  }
+
+  AccountController {
+    id: accountController
+    helper: root.helper
+    hasStations: root.connected && root.stations.length > 0
+    onReconnectRequested: root.reconnectAccount()
+    onReadyChanged: {
+      if (!ready) return
+      root.applyBackendVisibility()
+      root.refresh()
+      root.ensureDaemon()
+    }
   }
 
   Timer {
@@ -475,7 +503,7 @@ Item {
     interval: 15000
     onTriggered: {
       root.refresh()
-      if (!root.connected) root.reportCommandError("Pithos has not connected yet. Open Pithos to check sign-in.")
+      if (!root.connected) root.reportCommandError("Pandora has not connected yet. Check Settings to try again.")
     }
   }
 
@@ -496,6 +524,22 @@ Item {
     target: root.pithosPlayer
     function onPostTrackChanged() { root.refresh() }
     function onPlaybackStateChanged() { root.refresh() }
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (event.name !== "openwindow" || !root.account.ready || root.account.showBackend ||
+          root.account.changingWindow) return
+      var windowClass = String(event.data || "").split(",")[2]
+      if (/^(pithos|io\.github\.pithos)$/i.test(windowClass || "")) hideNewWindow.restart()
+    }
+  }
+
+  Timer {
+    id: hideNewWindow
+    interval: 100
+    onTriggered: root.applyBackendVisibility()
   }
 
   // Pins are written by the helper as a private (0600) file, sent on stdin.

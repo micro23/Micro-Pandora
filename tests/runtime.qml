@@ -56,6 +56,17 @@ ShellRoot {
                    && panel.keyboardStations[0].path === "/jazz", "keyboard navigation uses filtered results")
         panel.closeSearch()
         root.check(panel.currentTab === "nowplaying", "search returns to now playing")
+        var settings = root.component("PlayerSettings").createObject(null, {
+          account: service.account, foreground: "#eee", muted: "#ccc",
+          accent: "#8cf", accentAlt: "#fba", background: "#203243"
+        })
+        root.check(settings && !settings.formReady, "sign-in waits for dependency checks")
+        settings.destroy()
+        service.account.missing = ["pithos"]
+        service.account.checked = true
+        panel.open("{}")
+        root.check(panel.currentTab === "setup", "a fresh install opens directly to setup")
+        panel.close()
         panel.destroy()
         service.destroy()
         console.log("MICRO_PANDORA_RUNTIME_OK")

@@ -13,13 +13,16 @@ omarchy plugin list
 
 ## 2. Dependencies
 
+For a fresh installation, extract the [release archive](https://github.com/micro23/Micro-Pandora/releases) and run `./scripts/setup.sh`. That command installs missing dependencies, installs the plugin, and adds Micro-Pandora to the app launcher. For manual package installation:
+
 ```bash
-omarchy pkg add cava python-pillow
+omarchy pkg add cava python-pillow python-gobject libsecret
 omarchy pkg aur add pithos
 ```
 
 Pithos is only in the AUR, not the official Arch repos, so it installs with
 `omarchy pkg aur add`. Both commands skip anything already installed.
+Install `gnome-keyring` if the session has no existing Secret Service provider.
 
 Confirm:
 
@@ -87,10 +90,8 @@ hyprctl reload
 ## 5. Sign in
 
 1. Click the music-note icon on the bar (opens Micro-Pandora).
-2. If nothing is connected, choose **Open Pithos** and sign in with your
-   Pandora account.
-3. Pithos stores the password in the system keyring. You should only need to
-   do this once.
-4. Close Pithos’s window if it appeared; playback is controlled from Micro-Pandora.
+2. Open **Settings** and enter the email and password for your Pandora account.
+3. Choose **Save and connect**. Your password is stored in the desktop keyring on this machine.
+4. **Show Pithos window** is available in Settings if you need Pithos’s native interface.
 
 Next: [first-run.md](first-run.md)

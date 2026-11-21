@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.dankestrick.omapandora",
   "name": "Micro-Pandora",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "micro23, Dankestrick and contributors",
   "license": "MIT",
   "description": "Pandora for Omarchy, with album-themed players and a live audio spectrum.",
@@ -15,12 +15,17 @@
     {
       "name": "pithos",
       "package": "pithos",
-      "why": "Pandora login and playback daemon"
+      "why": "Pandora playback backend"
     },
     {
       "name": "cava",
       "package": "cava",
       "why": "Now playing audio visualizer"
+    },
+    {
+      "name": "libsecret",
+      "package": "libsecret",
+      "why": "Store Pandora passwords in the desktop keyring"
     }
   ],
   "kinds": [

@@ -14,10 +14,11 @@ done
 cp "$root/tests/runtime.qml" "$scratch/shell.qml"
 if ! env -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
   XDG_RUNTIME_DIR="$scratch/runtime" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+  XDG_DATA_HOME="$scratch/data" XDG_STATE_HOME="$scratch/state" XDG_CONFIG_HOME="$scratch/config" \
   MICRO_PANDORA_TEST_ROOT="$root" \
   timeout 15 dbus-run-session -- quickshell -p "$scratch" --no-color >"$scratch/runtime.log" 2>&1 ||
-  ! grep -q MICRO_PANDORA_RUNTIME_OK "$scratch/runtime.log"; then
+  ! rg -q MICRO_PANDORA_RUNTIME_OK "$scratch/runtime.log"; then
   cat "$scratch/runtime.log" >&2
   exit 1
 fi
-echo "QML mode cycling, spectrum geometry, station search and stable poll bindings passed."
+echo "QML settings, visualizers, station search and stable poll bindings passed."

@@ -1,7 +1,6 @@
 # Pithos as a playback daemon
 
-Pithos is a GTK Pandora client. Micro-Pandora does **not** embed Pandora login.
-It starts Pithos, hides it, and controls it over MPRIS.
+Pithos is the GTK backend Micro-Pandora controls over MPRIS. Micro-Pandora’s Settings accepts account credentials and stores them in the format Pithos reads.
 
 ## Why
 
@@ -29,6 +28,4 @@ Pithos is **not** in Hyprland autostart. It should not run 24/7.
 
 ## First login
 
-Pithos stores email in GSettings and the password in the Secret Service
-(`io.github.Pithos.Account`). If auto-connect fails, open Pithos once from
-Settings.
+Pithos stores the email in GSettings and the password in the desktop keyring under `io.github.Pithos.Account`. Existing Pithos credentials work in Micro-Pandora. Use **Show Pithos window** from Settings to reach the native interface.

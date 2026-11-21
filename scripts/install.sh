@@ -99,7 +99,7 @@ mkdir "$STAGE/qml" "$STAGE/helpers"
 cp "$ROOT/manifest.json" "$STAGE/manifest.json"
 cp "$ROOT/qml/"* "$STAGE/qml/"
 cp "$ROOT/helpers/"* "$STAGE/helpers/"
-chmod +x "$STAGE/helpers/pithosctl" "$STAGE/helpers/cava-run"
+chmod +x "$STAGE/helpers/pithosctl" "$STAGE/helpers/cava-run" "$STAGE/helpers/setup-deps"
 {
   echo "# Created by Micro-Pandora scripts/install.sh. It replaces this folder only"
   echo "# while it holds exactly these files, unchanged."

@@ -33,9 +33,7 @@ pgrep -a cava
 
 ## Pithos window keeps popping up
 
-A second `pithos` launch raises the existing app. Micro-Pandora’s launch helper
-skips start if MPRIS is already there. Add the Hyprland rule in
-[install.md](install.md) so the GTK window stays on `special:pithos`.
+Choose **Settings → Hide Pithos window** in Micro-Pandora. The preference applies the next time Micro-Pandora starts the backend, too. Opening Pithos directly from the desktop can show its window.
 
 ## X does not stop the music
 
