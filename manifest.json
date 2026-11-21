@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.dankestrick.omapandora",
   "name": "Micro-Pandora",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "micro23, Dankestrick and contributors",
   "license": "MIT",
   "description": "Pandora for Omarchy, with album-themed players and a live audio spectrum.",

@@ -8,7 +8,7 @@ Image {
   property bool active: !parent || parent.visible
 
   function isLocalFile(url) {
-    return /^file:\/\//i.test(String(url || ""))
+    return /^file:\/\/(?:localhost)?\//i.test(String(url || ""))
   }
 
   source: active && isLocalFile(requestedSource) ? requestedSource : ""

@@ -6,6 +6,11 @@ Button {
   id: root
   property bool currentStation: false
 
+  Accessible.role: Accessible.Button
+  Accessible.name: root.text
+  Accessible.description: root.currentStation ? "Current station" : ""
+  Accessible.onPressAction: if (root.enabled) root.clicked()
+
   leftAlign: true
   height: Style.space(32)
   horizontalPadding: Style.space(12)

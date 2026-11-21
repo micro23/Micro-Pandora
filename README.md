@@ -2,6 +2,8 @@
 
 Micro-Pandora is a Pandora player for the Omarchy shell. It puts a mini player on the bar and opens a full player with a station browser, a playback deck, and a live spectrum. Both players use the current album’s artwork and colors. Pithos handles sign-in and playback.
 
+![Micro-Pandora full player with demo artwork and stations](docs/preview.webp)
+
 ## Install
 
 On a current Omarchy desktop, install the dependencies and add the plugin:
@@ -22,6 +24,7 @@ Micro-Pandora keeps the original `io.github.dankestrick.omapandora` plugin ID fo
 - On first use, open Pithos through Settings and sign in. Pithos stores the login in your desktop keyring.
 - Select a station in the sidebar. The active station has its own marker. Use the pin next to the station name to keep it in **My list**.
 - The full player has play, pause, skip, volume, and mute controls. Progress is read-only because Pandora doesn’t offer seeking here.
+- Press **V** or click the visualizer name in the header to cycle Spectrum, Mirror, and Orbit.
 
 See [installation](docs/install.md), [keyboard shortcuts](docs/keyboard.md), and [troubleshooting](docs/troubleshooting.md) for more.
 

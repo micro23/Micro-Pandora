@@ -12,9 +12,10 @@
 | `Ctrl+Right` | Next song |
 | `Ctrl+Up` / `Ctrl+Down` | Volume |
 | `M` | Mute or restore volume |
+| `V` | Cycle Spectrum, Mirror, and Orbit in the full player |
 | `/` or `Ctrl+F` | Search stations |
 | `Ctrl+/` | Shortcut list |
-| `Esc` | Close the player window (music keeps going unless you use **X**) |
+| `Esc` | Return from station search, or close the player and keep listening |
 
 ## Tab groups
 

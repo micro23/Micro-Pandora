@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell
 import qs.Commons
 import qs.Commons as Commons
@@ -13,6 +14,7 @@ BarWidget {
     ? bar.shell.serviceFor("io.github.dankestrick.omapandora") : null
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
   readonly property color muted: Commons.Color.muted
+  readonly property string displayFamily: "Adwaita Sans"
   readonly property string barText: pandora
     ? Api.barTrackText(pandora.title, pandora.artist,
       pandora.showTrackTitle, pandora.showArtistName, pandora.playing,
@@ -55,18 +57,6 @@ BarWidget {
     return win && win.screen ? String(win.screen.name || "") : ""
   }
 
-  function ownsMini() {
-    if (!pandora) return false
-    var here = thisScreenName()
-    var want = String(pandora.miniScreenName || "")
-    if (want) return here === want
-    if (bar && typeof bar.focusedScreenName === "function") {
-      var focused = String(bar.focusedScreenName() || "")
-      if (focused) return here === focused
-    }
-    return false
-  }
-
   function hideFullPanel() {
     var host = bar ? bar.shell : null
     if (host && typeof host.isPluginOpen === "function" && host.isPluginOpen(moduleName)
@@ -80,20 +70,14 @@ BarWidget {
     hideFullPanel()
   }
 
-  function syncMiniPopup() {
-    if (pandora && pandora.displayMode === "mini" && miniPlayerEnabled && ownsMini()) {
-      popupOpen = true
-    }
-  }
-
   function openMiniPopup() {
     popupOpen = true
   }
 
   function openFullPanel() {
     if (pandora) {
-      if (typeof pandora.rememberScreen === "function")
-        pandora.rememberScreen(thisScreenName())
+      pandora.openFullPlayer(thisScreenName())
+      return
     }
     var host = bar ? bar.shell : null
     if (!host) return
@@ -129,20 +113,14 @@ BarWidget {
     syncSettings()
     if (pandora) pandora.registerPlayerSurface(root)
   }
-  onPopupOpenChanged: if (pandora) pandora.setUiVisible("mini", popupOpen)
+  onPopupOpenChanged: if (pandora) pandora.setUiVisible(root, popupOpen)
   onMiniPlayerEnabledChanged: if (!miniPlayerEnabled) popupOpen = false
 
-  Connections {
-    target: root.pandora
-    function onDisplayModeChanged() { root.syncMiniPopup() }
-    function onMiniScreenNameChanged() { root.syncMiniPopup() }
-  }
   Component.onCompleted: {
     syncSettings()
     if (pandora) pandora.registerPlayerSurface(root)
   }
   Component.onDestruction: if (pandora) {
-    pandora.setUiVisible("mini", false)
     pandora.unregisterPlayerSurface(root)
   }
 
@@ -360,7 +338,7 @@ BarWidget {
 
         ToggleSwitch {
           id: miniSwitch
-          checked: root.pandora ? root.pandora.displayMode === "mini" : true
+          checked: true
           foreground: popup.foreground
           accent: popup.accent
           anchors.verticalCenter: parent.verticalCenter
@@ -380,12 +358,26 @@ BarWidget {
         visible: !root.pandora || !root.pandora.connected
 
         Button {
-          text: "Open Pithos"
+          text: root.pandora && root.pandora.launching ? "Opening Pithos…" : "Open Pithos"
           iconText: "󰍂"
           foreground: popup.foreground
           accent: popup.accent
-          onClicked: if (root.pandora) root.pandora.launchPithos()
+          enabled: root.pandora && !root.pandora.launching
+          onClicked: root.pandora.raisePithos()
         }
+      }
+
+      Text {
+        width: parent.width
+        visible: text !== ""
+        textFormat: Text.PlainText
+        text: root.pandora ? root.pandora.commandError || root.pandora.statusError : ""
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        color: popup.foreground
+        wrapMode: Text.Wrap
+        maximumLineCount: 2
+        elide: Text.ElideRight
       }
 
       Item {
@@ -449,14 +441,17 @@ BarWidget {
               textFormat: Text.PlainText
               text: root.pandora && root.pandora.title ? root.pandora.title : "Nothing playing"
               color: root.pandora && root.pandora.title ? popup.foreground : popup.muted
-              font.family: root.bar ? root.bar.fontFamily : Style.font.family
-              font.pixelSize: Style.font.subtitle
-              font.bold: true
+              font.family: root.displayFamily
+              font.pixelSize: Style.font.title * 1.12
+              font.weight: Font.DemiBold
+              wrapMode: Text.Wrap
+              maximumLineCount: 2
               elide: Text.ElideRight
             }
 
             Button {
               id: likeButton
+              anchors.verticalCenter: parent.verticalCenter
               iconText: root.pandora && root.pandora.loved ? "󰋑" : "󰋕"
               iconSize: Style.font.body
               foreground: Commons.Color.urgent
@@ -475,8 +470,8 @@ BarWidget {
             textFormat: Text.PlainText
             text: root.pandora ? root.pandora.artist : ""
             color: popup.accent
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.bodySmall
+            font.family: root.displayFamily
+            font.pixelSize: Style.font.body
             elide: Text.ElideRight
           }
 
@@ -486,9 +481,9 @@ BarWidget {
             visible: root.pandora && (root.pandora.album !== "" || root.pandora.stationName !== "")
             text: root.pandora
               ? (root.pandora.album || root.pandora.stationName) : ""
-            color: popup.muted
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.caption
+            color: popup.artPalette.accentAlt || popup.muted
+            font.family: root.displayFamily
+            font.pixelSize: Style.font.bodySmall
             elide: Text.ElideRight
           }
         }
@@ -513,7 +508,7 @@ BarWidget {
           step: 5
         }
 
-        Row {
+        RowLayout {
           width: parent.width
           Text {
             textFormat: Text.PlainText
@@ -522,7 +517,7 @@ BarWidget {
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.caption
           }
-          Item { width: Math.max(0, parent.width - Style.space(80)); height: 1 }
+          Item { Layout.fillWidth: true }
           Text {
             textFormat: Text.PlainText
             text: Api.millisecondsToClock((root.pandora ? root.pandora.lengthSeconds : 0) * 1000)
@@ -606,6 +601,7 @@ BarWidget {
 
         PlaybackSlider {
           width: parent.width - Style.space(34)
+          Accessible.name: "Volume"
           anchors.verticalCenter: parent.verticalCenter
           bar: root.bar
           trackColor: popup.artPalette.accentAlt ? Util.alpha(popup.accentAlt, 0.24)
@@ -616,6 +612,7 @@ BarWidget {
           maximum: 1
           step: 0.05
           sourceValue: root.pandora ? root.pandora.volume : 0
+          enabled: root.pandora && root.pandora.volumeSupported
           liveCommit: true
           onCommitted: function(value) { root.setVolumeValue(value) }
         }

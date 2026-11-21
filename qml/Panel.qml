@@ -21,7 +21,6 @@ Item {
   property int stationCursor: 0
   property int pinCursor: -1
   property string browseTarget: "nowplaying"
-  property string focusRegion: "nowplaying"
   property bool shortcutHelpOpen: false
   // True while the window is being moved to another monitor. Quickshell
   // hides and re-shows the window for that; the hide is not a close.
@@ -40,6 +39,7 @@ Item {
   readonly property string fontFamily: Style.font.family
   readonly property string displayFamily: "Adwaita Sans"
   readonly property bool connected: service && service.connected
+  readonly property string playbackError: service ? service.commandError || service.statusError : ""
   readonly property bool miniMode: !!(service && service.displayMode === "mini")
   readonly property var filteredStations: {
     var all = service && service.stations instanceof Array ? service.stations : []
@@ -54,7 +54,7 @@ Item {
   }
   readonly property var pinnedStations: copyStations(service ? service.pinnedStations : null)
   readonly property var unpinnedStations: copyStations(service ? service.unpinnedStations : null)
-  readonly property var keyboardStations: unpinnedStations
+  readonly property var keyboardStations: currentTab === "stations" ? filteredStations : unpinnedStations
 
   function applyPreferredScreen() {
     if (!service || typeof service.screenByName !== "function") return
@@ -70,9 +70,7 @@ Item {
     closingFromHost = false
     applyPreferredScreen()
     opened = true
-    if (service) service.setUiVisible("panel", true)
     browseTarget = "nowplaying"
-    focusRegion = "nowplaying"
     currentTab = currentTab === "setup" ? "nowplaying" : currentTab
     if (currentTab === "stations") currentTab = "nowplaying"
     pinCursor = pinnedStations.length ? 0 : -1
@@ -90,7 +88,6 @@ Item {
   function close() {
     closingFromHost = true
     opened = false
-    if (service) service.setUiVisible("panel", false)
     closingFromHost = false
   }
 
@@ -162,7 +159,6 @@ Item {
   }
 
   function moveStation(delta) {
-    if (currentTab === "stations") currentTab = "nowplaying"
     if (browseTarget === "player") {
       setVolumeValue((service ? service.volume : 0) + (delta > 0 ? -0.05 : 0.05))
       return
@@ -178,17 +174,13 @@ Item {
     var list = keyboardStations
     if (!list.length) return
     stationCursor = wrapIndex(stationCursor, list.length, delta)
-    Qt.callLater(scrollSidebarToCursor)
+    if (currentTab === "stations")
+      Qt.callLater(function() { searchFlick.positionViewAtIndex(stationCursor, ListView.Contain) })
+    else Qt.callLater(scrollSidebarToCursor)
   }
 
   function scrollSidebarToCursor() {
-    if (!unpinnedRepeater || !stationFlick) return
-    var item = unpinnedRepeater.itemAt(stationCursor)
-    if (!item) {
-      if (stationCursor === 0) stationFlick.contentY = 0
-      return
-    }
-    scrollTileIntoView(stationFlick, item)
+    if (stationFlick.count) stationFlick.positionViewAtIndex(stationCursor, ListView.Contain)
   }
 
   function scrollTileIntoView(flick, item) {
@@ -213,16 +205,29 @@ Item {
     var list = keyboardStations
     if (!list.length) return
     var index = Math.max(0, Math.min(stationCursor, list.length - 1))
-    service.activateStation(list[index].path)
+    playStation(list[index].path)
+  }
+
+  function playStation(path) {
+    if (!service || !path) return
+    if (currentTab === "stations") closeSearch()
+    service.activateStation(path)
   }
 
   function focusSearch() {
     browseTarget = "stations"
-    focusRegion = "search"
-    if (currentTab === "stations") currentTab = "nowplaying"
+    currentTab = "stations"
+    stationCursor = 0
     Qt.callLater(function() {
-      if (stationSearch) stationSearch.forceActiveFocus()
+      stationSearch.forceActiveFocus()
+      stationSearch.selectAll()
     })
+  }
+
+  function closeSearch() {
+    currentTab = "nowplaying"
+    stationSearch.focus = false
+    Qt.callLater(function() { keyRoot.forceActiveFocus() })
   }
 
   function frameSpec(active) {
@@ -234,7 +239,6 @@ Item {
     var at = order.indexOf(browseTarget)
     if (at < 0) at = 0
     browseTarget = order[(at + 1) % order.length]
-    focusRegion = browseTarget
     if (browseTarget === "nowplaying")
       pinCursor = pinnedStations.length ? 0 : -1
     if (currentTab === "stations" || currentTab === "setup")
@@ -279,10 +283,15 @@ Item {
     service.setVolume(value)
   }
 
-  onOpenedChanged: if (service) service.setUiVisible("panel", opened)
+  onOpenedChanged: if (service) service.setUiVisible(root, opened)
+  Component.onDestruction: if (service) service.setUiVisible(root, false)
   onKeyboardStationsChanged: {
     if (stationCursor >= keyboardStations.length)
       stationCursor = Math.max(0, keyboardStations.length - 1)
+  }
+  onStationFilterChanged: if (currentTab === "stations") {
+    stationCursor = 0
+    if (searchFlick) searchFlick.positionViewAtBeginning()
   }
 
   Timer {
@@ -320,6 +329,19 @@ Item {
       id: keyRoot
       anchors.fill: parent
       focus: true
+
+      Shortcut {
+        sequence: "V"
+        context: Qt.WindowShortcut
+        autoRepeat: false
+        enabled: root.opened && !root.shortcutHelpOpen
+          && !(stationSearch.visible && stationSearch.activeFocus)
+        onActivated: {
+          root.chooseTab("nowplaying")
+          visualizer.nextMode()
+        }
+      }
+
       Keys.priority: Keys.BeforeItem
       Keys.onPressed: function(event) {
         var ctrl = !!(event.modifiers & Qt.ControlModifier)
@@ -346,7 +368,11 @@ Item {
           root.cycleRegion()
           event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
-          root.requestClose()
+          if (root.currentTab === "stations") root.closeSearch()
+          else root.requestClose()
+          event.accepted = true
+        } else if (!typing && ctrl && (event.key === Qt.Key_Up || event.key === Qt.Key_Down)) {
+          if (root.service) root.service.adjustVolume(event.key === Qt.Key_Up ? 0.05 : -0.05)
           event.accepted = true
         } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
           root.moveStation(event.key === Qt.Key_Down ? 1 : -1)
@@ -361,12 +387,6 @@ Item {
           event.accepted = true
         } else if (ctrl && event.key === Qt.Key_Right) {
           if (root.service) root.service.next()
-          event.accepted = true
-        } else if (ctrl && event.key === Qt.Key_Up) {
-          root.setVolumeValue((root.service ? root.service.volume : 0) + 0.05)
-          event.accepted = true
-        } else if (ctrl && event.key === Qt.Key_Down) {
-          root.setVolumeValue((root.service ? root.service.volume : 0) - 0.05)
           event.accepted = true
         } else if (event.key === Qt.Key_M) {
           root.toggleMute()
@@ -541,44 +561,35 @@ Item {
                     font.weight: Font.DemiBold
                   }
 
-                  Flickable {
+                  ListView {
                     id: stationFlick
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    contentWidth: width
-                    contentHeight: stationNav.implicitHeight
                     visible: root.connected
                     boundsBehavior: Flickable.StopAtBounds
                     focus: false
                     Keys.enabled: false
+                    spacing: Style.space(2)
+                    reuseItems: true
+                    model: root.unpinnedStations
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                    Column {
-                      id: stationNav
+                    delegate: StationTile {
+                      required property int index
+                      required property var modelData
                       width: stationFlick.width - Style.space(6)
-                      spacing: Style.space(2)
-
-                      Repeater {
-                        id: unpinnedRepeater
-                        model: root.unpinnedStations
-
-                        StationTile {
-                          required property var modelData
-                          width: stationNav.width
-                          text: modelData.name || "Station"
-                          iconText: currentStation && root.service.playing ? "󰎆" : "󰐹"
-                          foreground: currentStation ? root.accent : root.foreground
-                          accent: root.accent
-                          selected: root.isCursor(modelData.path)
-                          currentStation: !!(root.service && modelData.path === root.service.stationPath)
-                          onClicked: {
-                            root.stationCursor = root.stationIndex(root.keyboardStations, modelData.path)
-                            root.browseTarget = "stations"
-                            root.chooseTab("nowplaying")
-                            if (root.service) root.service.activateStation(modelData.path)
-                          }
-                        }
+                      text: modelData.name || "Station"
+                      iconText: currentStation && root.service.playing ? "󰎆" : "󰐹"
+                      foreground: currentStation ? root.accent : root.foreground
+                      accent: root.accent
+                      selected: root.isCursor(modelData.path)
+                      currentStation: !!(root.service && modelData.path === root.service.stationPath)
+                      onClicked: {
+                        root.chooseTab("nowplaying")
+                        root.stationCursor = index
+                        root.browseTarget = "stations"
+                        root.playStation(modelData.path)
                       }
                     }
                   }
@@ -613,6 +624,7 @@ Item {
               Row {
                 width: Math.max(80, parent.width - headerMiniSwitch.width
                   - helpButton.width - refreshButton.width - closeButton.width
+                  - (visualizerButton.visible ? visualizerButton.width + parent.spacing : 0)
                   - parent.spacing * 4)
                 spacing: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
@@ -659,6 +671,16 @@ Item {
               }
 
               Button {
+                id: visualizerButton
+                visible: root.currentTab === "nowplaying"
+                text: visualizer.modeName
+                foreground: root.accent
+                accent: root.accentAlt
+                tooltipText: "Change visualizer · V"
+                onClicked: visualizer.nextMode()
+              }
+
+              Button {
                 id: helpButton
                 text: "?"
                 foreground: root.foreground
@@ -694,6 +716,7 @@ Item {
               height: visible ? Style.space(38) : 0
               foreground: root.foreground
               placeholderText: "Search stations"
+              text: root.stationFilter
               onTextEdited: root.stationFilter = text
             }
 
@@ -713,6 +736,7 @@ Item {
 
                 Item {
                   id: heroStage
+                  readonly property bool compact: height < Style.space(390)
                   anchors.left: parent.left
                   anchors.right: parent.right
                   anchors.top: parent.top
@@ -721,17 +745,29 @@ Item {
                   anchors.bottomMargin: visualizer.centerHeight + Style.space(28)
                   z: 1
 
-                  Column {
+                  GridLayout {
                     id: nowPlayingHero
                     anchors.centerIn: parent
-                    width: parent.width
-                    spacing: Style.space(16)
+                    columns: heroStage.compact ? 2 : 1
+                    width: heroStage.compact
+                      ? Math.min(parent.width, coverSize + columnSpacing + textWidth)
+                      : parent.width
+                    rowSpacing: Style.space(16)
+                    columnSpacing: Style.space(20)
+                    readonly property real coverSize: heroStage.compact
+                      ? Math.max(1, Math.min(Style.space(220), heroStage.height, heroStage.width * 0.34))
+                      : Math.min(Style.space(360), heroStage.width,
+                          Math.max(1, heroStage.height - metadataReserve))
+                    readonly property real textWidth: Math.min(Style.space(470),
+                      Math.max(Style.space(260), heroTitleMetrics.advanceWidth))
+                    readonly property real metadataReserve: Style.space(157)
+                      + (heroTitleMetrics.advanceWidth > Math.min(heroStage.width, Style.space(680))
+                        ? heroTitle.font.pixelSize * 1.25 : 0)
 
                     AlbumFrame {
-                      width: Math.min(Style.space(360), parent.width,
-                        Math.max(1, heroStage.height - nowPlayingMeta.implicitHeight - nowPlayingHero.spacing))
-                      height: width
-                      anchors.horizontalCenter: parent.horizontalCenter
+                      Layout.preferredWidth: nowPlayingHero.coverSize
+                      Layout.preferredHeight: nowPlayingHero.coverSize
+                      Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                       radius: Style.cornerRadius
                       color: Style.selectedFillFor(root.foreground, root.accent)
                       foreground: root.foreground
@@ -766,11 +802,20 @@ Item {
 
                     Column {
                       id: nowPlayingMeta
-                      width: Math.min(parent.width, Style.space(680))
-                      anchors.horizontalCenter: parent.horizontalCenter
+                      Layout.preferredWidth: heroStage.compact
+                        ? nowPlayingHero.width - nowPlayingHero.coverSize - nowPlayingHero.columnSpacing
+                        : Math.min(nowPlayingHero.width, Style.space(680))
+                      Layout.alignment: heroStage.compact ? Qt.AlignLeft | Qt.AlignVCenter : Qt.AlignHCenter
                       spacing: Style.space(4)
 
+                      TextMetrics {
+                        id: heroTitleMetrics
+                        text: heroTitle.text
+                        font: heroTitle.font
+                      }
+
                       Text {
+                        id: heroTitle
                         width: parent.width
                         textFormat: Text.PlainText
                         text: root.service && root.service.title
@@ -780,10 +825,22 @@ Item {
                         font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 1.87,
                           Math.max(Style.font.displayLarge * 1.23, heroStage.height * 0.109)))
                         font.weight: Font.ExtraBold
-                        horizontalAlignment: Text.AlignHCenter
+                        horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         wrapMode: Text.Wrap
-                        maximumLineCount: 2
+                        maximumLineCount: heroStage.height < Style.space(175) ? 1 : 2
                         elide: Text.ElideRight
+                      }
+
+                      Button {
+                        anchors.horizontalCenter: heroStage.compact ? undefined : parent.horizontalCenter
+                        anchors.left: heroStage.compact ? parent.left : undefined
+                        visible: !root.connected && !!root.service
+                        enabled: root.service && !root.service.launching
+                        text: root.service && root.service.launching ? "Opening Pithos…" : "Open Pithos"
+                        foreground: root.accent
+                        accent: root.accent
+                        bordered: true
+                        onClicked: root.service.raisePithos()
                       }
 
                       Text {
@@ -795,7 +852,7 @@ Item {
                         font.family: root.displayFamily
                         font.pixelSize: Math.round(Style.font.title * 1.57)
                         font.weight: Font.DemiBold
-                        horizontalAlignment: Text.AlignHCenter
+                        horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         elide: Text.ElideRight
                       }
 
@@ -808,12 +865,13 @@ Item {
                         font.family: root.displayFamily
                         font.pixelSize: Math.round(Style.font.title * 1.32)
                         font.weight: Font.Medium
-                        horizontalAlignment: Text.AlignHCenter
+                        horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         elide: Text.ElideRight
                       }
 
                       Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.horizontalCenter: heroStage.compact ? undefined : parent.horizontalCenter
+                        anchors.left: heroStage.compact ? parent.left : undefined
                         spacing: Style.space(8)
                         visible: root.service && root.service.stationName !== ""
 
@@ -853,7 +911,8 @@ Item {
                   anchors.fill: parent
                   anchors.margins: Style.space(12)
                   centerHeight: Math.round(parent.height * 0.33)
-                  protectedWidth: nowPlayingMeta.width + Style.space(24)
+                  protectedWidth: (heroStage.compact ? nowPlayingHero.width : nowPlayingMeta.width)
+                    + Style.space(24)
                   playing: !!(root.service && root.service.playing)
                   active: root.opened && root.currentTab === "nowplaying"
                   barColors: root.artPalette.accent
@@ -863,110 +922,62 @@ Item {
                 }
               }
 
-              Flickable {
+              ListView {
+                id: searchFlick
                 anchors.fill: parent
+                anchors.margins: Style.space(4)
                 visible: root.currentTab === "stations"
                 clip: true
-                contentWidth: width
-                contentHeight: stationList.implicitHeight
+                reuseItems: true
+                spacing: Style.space(4)
+                model: visible ? root.filteredStations : []
+                boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                Column {
-                  id: stationList
-                  width: parent.width
-                  spacing: Style.space(2)
+                delegate: RowLayout {
+                  id: searchResult
+                  required property int index
+                  required property var modelData
+                  width: searchFlick.width - Style.space(10)
+                  spacing: Style.space(6)
 
-                  Text {
-                    textFormat: Text.PlainText
-                    visible: !root.connected
-                    width: parent.width
-                    text: "Open Pithos and sign in to load your stations."
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.body
-                    wrapMode: Text.WordWrap
+                  StationTile {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Style.space(40)
+                    text: searchResult.modelData.name || "Station"
+                    iconText: currentStation ? "󰎆" : "󰐹"
+                    foreground: currentStation ? root.accent : root.foreground
+                    accent: root.accent
+                    selected: searchResult.index === root.stationCursor
+                    currentStation: !!(root.service && searchResult.modelData.path === root.service.stationPath)
+                    onClicked: root.playStation(searchResult.modelData.path)
                   }
 
-                  Repeater {
-                    model: root.filteredStations
-                    BorderSurface {
-                      required property var modelData
-                      width: stationList.width
-                      height: Style.space(44)
-                      radius: Style.spacing.labelGap
-                      readonly property bool selected: root.service
-                        && String(root.service.stationPath) === String(modelData.path)
-                      readonly property bool cursor: {
-                        var list = root.keyboardStations
-                        var index = root.stationCursor
-                        return index >= 0 && index < list.length
-                          && String(list[index].path) === String(modelData.path)
-                      }
-                      color: selected
-                        ? Style.selectedFillFor(root.foreground, root.accent)
-                        : "transparent"
-                      borderSpec: selected || cursor
-                        ? Border.controlSpec("selected", root.foreground, root.accent)
-                        : Border.none()
-
-                      Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: Style.space(8)
-                        anchors.rightMargin: Style.space(8)
-                        spacing: Style.space(10)
-
-                        OpticalGlyph {
-                          width: Style.space(18)
-                          height: Style.space(18)
-                          anchors.verticalCenter: parent.verticalCenter
-                          text: "󰐹"
-                          color: root.foreground
-                          fontFamily: root.fontFamily
-                          fontSize: Style.font.body
-                        }
-
-                        Text {
-                          width: Math.max(40, parent.width - Style.space(110))
-                          anchors.verticalCenter: parent.verticalCenter
-                          textFormat: Text.PlainText
-                          text: modelData.name || "Station"
-                          color: root.foreground
-                          font.family: root.fontFamily
-                          font.pixelSize: Style.font.body
-                          elide: Text.ElideRight
-                        }
-
-                        Button {
-                          anchors.verticalCenter: parent.verticalCenter
-                          iconText: root.service && root.service.isPinned(modelData.path)
-                            ? "󰐃" : "󰤱"
-                          foreground: root.foreground
-                          tooltipText: root.service && root.service.isPinned(modelData.path)
-                            ? "Unpin from My list" : "Pin to My list"
-                          onClicked: if (root.service) root.service.togglePin(modelData)
-                        }
-
-                        Button {
-                          anchors.verticalCenter: parent.verticalCenter
-                          iconText: "󰐊"
-                          foreground: root.foreground
-                          tooltipText: "Play station"
-                          onClicked: if (root.service)
-                            root.service.activateStation(modelData.path)
-                        }
-                      }
-
-                      MouseArea {
-                        anchors.fill: parent
-                        z: -1
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                          root.stationCursor = root.stationIndex(root.keyboardStations, modelData.path)
-                          if (root.service) root.service.activateStation(modelData.path)
-                        }
-                      }
-                    }
+                  Button {
+                    Layout.alignment: Qt.AlignVCenter
+                    iconText: root.service && root.service.isPinned(searchResult.modelData.path)
+                      ? "󰐃" : "󰤱"
+                    foreground: root.accentAlt
+                    accent: root.accentAlt
+                    tooltipText: root.service && root.service.isPinned(searchResult.modelData.path)
+                      ? "Unpin from My list" : "Pin to My list"
+                    onClicked: if (root.service) root.service.togglePin(searchResult.modelData)
                   }
                 }
+              }
+
+              Text {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - Style.space(24), Style.space(460))
+                visible: searchFlick.visible && !root.filteredStations.length
+                textFormat: Text.PlainText
+                text: !root.connected ? "Open Pithos and sign in to load your stations."
+                  : root.stationFilter.trim() ? "No stations match your search." : "No stations are available."
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: root.muted
+                font.family: root.displayFamily
+                font.pixelSize: Style.font.subtitle
               }
 
               Column {
@@ -1013,6 +1024,34 @@ Item {
             GradientStop { position: 0.35; color: Util.alpha(root.accentAlt, 0.72) }
             GradientStop { position: 0.72; color: Util.alpha(root.accent, 0.72) }
             GradientStop { position: 1; color: Util.alpha(root.accent, 0.22) }
+          }
+        }
+
+        DeckSurface {
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.bottom: footerSeparator.top
+          anchors.bottomMargin: Style.space(10)
+          width: Math.min(parent.width - Style.space(20), Style.space(510))
+          height: playbackMessage.implicitHeight + Style.space(20)
+          baseColor: Qt.darker(root.background, 1.5)
+          accent: Commons.Color.urgent
+          emphasized: true
+          visible: root.currentTab !== "setup" && root.playbackError !== ""
+          z: 2
+
+          Text {
+            id: playbackMessage
+            anchors.centerIn: parent
+            width: parent.width - Style.space(20)
+            text: root.playbackError
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignHCenter
+            color: root.foreground
+            font.family: root.displayFamily
+            font.pixelSize: Style.font.body
           }
         }
 
@@ -1157,6 +1196,7 @@ Item {
                     foreground: root.foreground
                     enabled: false
                     opacity: 0.35
+                    tooltipText: "Previous is not available on Pandora"
                   }
                   TransportButton {
                     glyphText: root.service && root.service.playing ? "󰏤" : "󰐊"
@@ -1282,6 +1322,7 @@ Item {
 
                 PlaybackSlider {
                   id: volumeSlider
+                    Accessible.name: "Volume"
                   width: parent.width
                   trackHeight: Style.space(5)
                   trackColor: root.artPalette.accentAlt ? Util.alpha(root.accentAlt, 0.24) : "#333"
@@ -1292,7 +1333,7 @@ Item {
                   step: 0.05
                   sourceValue: root.service ? root.service.volume : 0
                   liveCommit: true
-                  enabled: root.connected
+                  enabled: root.service && root.service.volumeSupported
                   onCommitted: function(value) { root.setVolumeValue(value) }
                 }
               }
@@ -1348,6 +1389,7 @@ Item {
                 "Ctrl+Right — Next song",
                 "Ctrl+Up / Ctrl+Down — Volume",
                 "M — Mute or restore volume",
+                "V — Cycle Spectrum, Mirror, and Orbit",
                 "Ctrl+/ — This list",
                 "Esc — Close the player"
               ]

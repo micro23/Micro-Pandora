@@ -38,7 +38,6 @@ Micro-Pandora/
 │   ├── keyboard.md
 │   ├── layout.md          Player layout (not this file).
 │   ├── pithos.md
-│   ├── screenshots.md
 │   ├── troubleshooting.md
 │   └── screenshots/       PNG files. kebab-case names, no spaces.
 │

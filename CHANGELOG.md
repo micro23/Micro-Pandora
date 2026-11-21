@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.0
+
+- Add Mirror and Orbit visualizers. Press V or click the visualizer name to cycle through views without interrupting playback.
+- Follow Pithos’s audio output when it differs from the default or changes during a song.
+- Fix station search and keyboard volume shortcuts, and add feedback for playback and visualizer errors.
+- Switch between the mini and full player from either view. Give the mini player the same typography and album accents.
+
 ## v0.2.0
 
 - Rename the player to Micro-Pandora. Keep the plugin ID, pins, and IPC targets compatible with existing installs.

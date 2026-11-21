@@ -22,11 +22,12 @@ is **not** zero bytes (that happened during development).
 
 ## Visualizer is still / not bouncing
 
-Cava must hear the **speaker monitor**, not the microphone. `cava-run` sets
-`PULSE_SOURCE` to `$(pactl get-default-sink).monitor`. Music has to be playing.
+Cava samples the output Pithos is playing through. If the Pithos stream
+cannot be identified, the visualizer uses your default output. Start playback
+and check the selected monitor:
 
 ```bash
-pactl get-default-sink
+~/.config/omarchy/plugins/io.github.dankestrick.omapandora/helpers/cava-run --monitor
 pgrep -a cava
 ```
 

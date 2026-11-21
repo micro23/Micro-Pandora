@@ -13,13 +13,21 @@ Item {
   property var settings: ({})
 
   property var status: ({})
-  property string lastError: ""
-  property bool uiVisible: false
+  property string commandError: ""
+  property string statusError: ""
+  readonly property string lastError: commandError || statusError || pinsError
+  property var visibleSurfaces: []
+  readonly property bool uiVisible: visibleSurfaces.length > 0
   property var playerSurfaces: []
+  property var pendingActions: []
+  property var stationRows: []
+  property string stationSnapshot: "[]"
+  property var paletteColors: ({})
+  property string paletteSnapshot: "{}"
   property bool daemonStartAttempted: false
+  property bool pithosOpenedExplicitly: false
   property bool wanted: false
   property string displayMode: "full" // "full" or "mini"
-  property string miniScreenName: ""
   property string preferredScreenName: ""
   property var pinnedRaw: []
   // Pins are saved only after the pins file was read cleanly or found
@@ -36,25 +44,33 @@ Item {
   readonly property var pithosPlayer: findPithosPlayer()
   readonly property bool connected: !!(status && status.connected)
   onConnectedChanged: {
-    if (connected) hidePithos()
+    if (connected) {
+      launchDeadline.stop()
+      if (!pithosOpenedExplicitly) hidePithos()
+    }
   }
-  readonly property bool playing: String(status.status || "") === "Playing"
-    || !!(pithosPlayer && pithosPlayer.isPlaying)
+  readonly property bool playing: pithosPlayer ? pithosPlayer.isPlaying : status.status === "Playing"
   readonly property bool hasMedia: connected && (title !== "" || artist !== "")
   readonly property string title: String(status.title || (pithosPlayer ? pithosPlayer.trackTitle : "") || "")
   readonly property string artist: String(status.artist || (pithosPlayer ? pithosPlayer.trackArtist : "") || "")
   readonly property string album: String(status.album || (pithosPlayer ? pithosPlayer.trackAlbum : "") || "")
   readonly property string artUrl: String(status.artUrl || (pithosPlayer ? pithosPlayer.trackArtUrl : "") || "")
-  readonly property var artPalette: status.artPalette || ({})
+  readonly property var artPalette: paletteColors
   readonly property string stationName: String(status.stationName || "")
   readonly property string stationPath: String(status.stationPath || "")
-  readonly property var stations: status.stations instanceof Array ? status.stations : []
+  readonly property var stations: stationRows
   readonly property bool loved: !!status.loved
-  readonly property real volume: Number(status.volume || 0)
-  readonly property bool volumeSupported: connected
-  readonly property real positionSeconds: Number(status.positionMs || 0) / 1000
+  readonly property real volume: Api.clampUnit(pithosPlayer && pithosPlayer.volumeSupported
+    ? pithosPlayer.volume : status.volume)
+  readonly property bool volumeSupported: pithosPlayer ? pithosPlayer.volumeSupported : connected
   readonly property real lengthSeconds: Number(status.lengthMs || 0) / 1000
-  readonly property bool canGoNext: status.canGoNext !== false
+  readonly property real positionSeconds: {
+    var value = pithosPlayer && pithosPlayer.positionSupported
+      ? pithosPlayer.position : Number(status.positionMs || 0) / 1000
+    return Math.max(0, lengthSeconds > 0 ? Math.min(value, lengthSeconds) : value)
+  }
+  readonly property bool canGoNext: pithosPlayer ? pithosPlayer.canGoNext : !!status.canGoNext
+  readonly property bool launching: launchDeadline.running
   readonly property bool canGoPrevious: false
   readonly property bool showTrackTitle: Api.settingOn(setting("showTrackTitle", "On"), "On")
   readonly property bool showArtistName: Api.settingOn(setting("showArtistName", "Off"), "Off")
@@ -119,9 +135,13 @@ Item {
     return null
   }
 
-  function setUiVisible(key, visible) {
-    uiVisible = !!visible
-    if (visible) {
+  function setUiVisible(surface, visible) {
+    var shown = visibleSurfaces.indexOf(surface) !== -1
+    if (shown === visible) return
+    var first = !uiVisible
+    visibleSurfaces = visible ? visibleSurfaces.concat([surface])
+      : visibleSurfaces.filter(function(item) { return item !== surface })
+    if (visible && first) {
       wanted = true
       daemonStartAttempted = false
       refresh()
@@ -136,6 +156,7 @@ Item {
   }
 
   function unregisterPlayerSurface(surface) {
+    setUiVisible(surface, false)
     playerSurfaces = playerSurfaces.filter(function(item) { return item !== surface })
   }
 
@@ -145,8 +166,42 @@ Item {
   }
 
   function runHelper(args) {
-    helperProc.command = helperCommand(30, args)
+    var queue = pendingActions.slice()
+    if (args[0] === "volume" && queue.length && queue[queue.length - 1][0] === "volume")
+      queue[queue.length - 1] = args
+    else queue.push(args)
+    pendingActions = queue
+    startHelper()
+  }
+
+  function startHelper() {
+    if (helperProc.running || !pendingActions.length) return
+    var action = pendingActions[0]
+    pendingActions = pendingActions.slice(1)
+    helperProc.action = action[0]
+    helperProc.command = helperCommand(12, action)
     helperProc.running = true
+  }
+
+  function reportCommandError(message) {
+    commandError = String(message || "Pithos command failed.").trim()
+    errorTimeout.restart()
+  }
+
+  function applyStatus(parsed) {
+    var incomingStations = Array.isArray(parsed.stations) ? parsed.stations : []
+    var incomingPalette = parsed.artPalette || ({})
+    var stationKey = JSON.stringify(incomingStations)
+    var paletteKey = JSON.stringify(incomingPalette)
+    if (stationKey !== stationSnapshot) {
+      stationSnapshot = stationKey
+      stationRows = incomingStations
+    }
+    if (paletteKey !== paletteSnapshot) {
+      paletteSnapshot = paletteKey
+      paletteColors = incomingPalette
+    }
+    status = parsed
   }
 
   function refresh() {
@@ -166,15 +221,20 @@ Item {
     Qt.callLater(refresh)
   }
 
-  function love() { runHelper(["love"]); Qt.callLater(refresh) }
-  function unrate() { runHelper(["unrate"]); Qt.callLater(refresh) }
+  function rate(action) {
+    if (status.trackId) runHelper([action, String(status.trackId)])
+  }
+
+  function love() { rate("love") }
+  function unrate() { rate("unrate") }
   function toggleLove() { loved ? unrate() : love() }
-  function ban() { runHelper(["ban"]); Qt.callLater(refresh) }
-  function tired() { runHelper(["tired"]); Qt.callLater(refresh) }
+  function ban() { rate("ban") }
+  function tired() { rate("tired") }
 
   function setVolume(value) {
-    runHelper(["volume", String(Api.clampUnit(value))])
-    Qt.callLater(refresh)
+    var target = Api.clampUnit(value)
+    if (pithosPlayer && pithosPlayer.volumeSupported) pithosPlayer.volume = target
+    else if (connected) runHelper(["volume", String(target)])
   }
 
   function adjustVolume(delta) {
@@ -198,7 +258,6 @@ Item {
   function togglePin(station) {
     if (!station) return
     if (pinsState !== "ok") {
-      if (pinsError) lastError = pinsError
       return
     }
     var path = Api.stationPath(station)
@@ -232,10 +291,12 @@ Item {
   }
 
   function launchPithos() {
-    lastError = ""
+    if (launching) return
+    commandError = ""
+    pithosOpenedExplicitly = false
     daemonStartAttempted = true
     runHelper(["launch"])
-    launchWatch.restart()
+    launchDeadline.restart()
   }
 
   function ensureDaemon() {
@@ -247,7 +308,7 @@ Item {
   function stopAndQuit() {
     wanted = false
     daemonStartAttempted = true
-    launchWatch.stop()
+    launchDeadline.stop()
     if (pithosPlayer) {
       if (pithosPlayer.canPause) pithosPlayer.pause()
       else if (pithosPlayer.canTogglePlaying && pithosPlayer.isPlaying)
@@ -263,8 +324,11 @@ Item {
   }
 
   function raisePithos() {
-    if (connected) runHelper(["raise"])
-    else launchPithos()
+    pithosOpenedExplicitly = true
+    daemonStartAttempted = true
+    commandError = ""
+    runHelper(["open"])
+    if (!connected) launchDeadline.restart()
   }
 
   function focusedScreenName() {
@@ -290,33 +354,43 @@ Item {
     return null
   }
 
-  function enterMini(screenName) {
-    var name = rememberScreen(screenName)
-    miniScreenName = name
-    displayMode = "mini"
+  function miniSurface(screenName) {
+    var fallback = null
+    for (var i = 0; i < playerSurfaces.length; i++) {
+      var surface = playerSurfaces[i]
+      if (!surface || !surface.miniPlayerEnabled) continue
+      if (surface.thisScreenName() === screenName) return surface
+      if (!fallback) fallback = surface
+    }
+    return fallback
   }
 
-  function openFullPlayer() {
+  function enterMini(screenName) {
+    var surface = miniSurface(screenName)
+    if (!surface) return false
+    rememberScreen(surface.thisScreenName())
+    displayMode = "mini"
+    surface.openMiniPopup()
+    if (shell && typeof shell.hide === "function") shell.hide(pluginId)
+    return true
+  }
+
+  function openFullPlayer(screenName) {
     if (!shell) return
-    rememberScreen(preferredScreenName || focusedScreenName())
-    miniScreenName = ""
+    rememberScreen(screenName || focusedScreenName())
+    for (var i = 0; i < playerSurfaces.length; i++) {
+      var surface = playerSurfaces[i]
+      if (surface && surface.opened) surface.close()
+    }
     displayMode = "full"
     if (typeof shell.summon === "function") shell.summon(pluginId, "{}")
     else if (typeof shell.toggle === "function") shell.toggle(pluginId, "{}")
   }
 
-  function toggleDisplayMode() {
-    if (displayMode === "full") enterMini(preferredScreenName)
-    else {
-      miniScreenName = ""
-      displayMode = "full"
-    }
-  }
-
   function pinWindowToPreferredScreen() {
     var name = String(preferredScreenName || "")
     // Monitor names go into a hyprctl batch string; allow only plain names.
-    if (!name || !/^[A-Za-z0-9_.-]+$/.test(name)) return
+    if (!name || name === focusedScreenName() || !/^[A-Za-z0-9_.-]+$/.test(name)) return
     pinMonProc.command = [
       "timeout", "5", "hyprctl", "--batch",
       "dispatch focuswindow title:^(Micro-Pandora)$; "
@@ -336,7 +410,13 @@ Item {
       }
       return "unavailable"
     }
-    function toggleMiniPlayer(): string { return togglePlayer() }
+    function toggleMiniPlayer(): string {
+      var surface = root.miniSurface(root.focusedScreenName())
+      if (!surface) return "unavailable"
+      if (surface.opened) surface.close()
+      else root.enterMini(surface.thisScreenName())
+      return "ok"
+    }
     function toggleFullPlayer(): string {
       root.openFullPlayer()
       return "ok"
@@ -352,28 +432,29 @@ Item {
     stderr: StdioCollector { id: statusErr; waitForEnd: true }
     onExited: function(code) {
       var parsed = Api.parseStatus(statusOut.text)
-      if (parsed) {
-        var wasConnected = root.connected
-        root.status = parsed
-        if (parsed.connected) {
-          root.lastError = root.pinsError
-        } else if (root.wanted && !root.daemonStartAttempted) {
+      if (parsed && code === 0) {
+        root.statusError = ""
+        root.applyStatus(parsed)
+        if (!parsed.connected && root.wanted && !root.daemonStartAttempted) {
           root.ensureDaemon()
         }
-      } else if (code !== 0) {
-        root.lastError = String(statusErr.text || "Could not read Pithos.").trim()
+      } else {
+        root.statusError = String(statusErr.text || "Could not read Pithos.").trim()
       }
     }
   }
 
   Process {
     id: helperProc
+    property string action: ""
     stdout: StdioCollector { waitForEnd: true }
     stderr: StdioCollector { id: helperErr; waitForEnd: true }
     onExited: function(code) {
-      if (code !== 0)
-        root.lastError = String(helperErr.text || "Pithos command failed.").trim()
+      if ((action === "launch" || action === "open") && (code !== 0 || root.connected))
+        launchDeadline.stop()
+      if (code !== 0) root.reportCommandError(helperErr.text)
       root.refresh()
+      Qt.callLater(root.startHelper)
     }
   }
 
@@ -383,22 +464,38 @@ Item {
 
   Timer {
     id: poll
-    interval: root.uiVisible ? 1200 : 4000
+    interval: root.launching ? 700 : root.uiVisible ? 1200 : 4000
     repeat: true
-    running: true
+    running: root.uiVisible || root.connected || !!root.pithosPlayer || root.launching
     onTriggered: root.refresh()
   }
 
   Timer {
-    id: launchWatch
-    interval: 800
-    repeat: true
+    id: launchDeadline
+    interval: 15000
     onTriggered: {
       root.refresh()
-      if (root.connected) {
-        stop()
-      }
+      if (!root.connected) root.reportCommandError("Pithos has not connected yet. Open Pithos to check sign-in.")
     }
+  }
+
+  Timer {
+    id: errorTimeout
+    interval: 8000
+    onTriggered: root.commandError = ""
+  }
+
+  Timer {
+    interval: 125
+    repeat: true
+    running: root.uiVisible && root.playing && !!root.pithosPlayer && root.pithosPlayer.positionSupported
+    onTriggered: root.pithosPlayer.positionChanged()
+  }
+
+  Connections {
+    target: root.pithosPlayer
+    function onPostTrackChanged() { root.refresh() }
+    function onPlaybackStateChanged() { root.refresh() }
   }
 
   // Pins are written by the helper as a private (0600) file, sent on stdin.
@@ -417,7 +514,7 @@ Item {
     onExited: function(code) {
       stdinEnabled = true
       if (code !== 0) {
-        root.lastError = String(pinSaverErr.text || "Could not save pins.").trim()
+        root.reportCommandError(pinSaverErr.text || "Could not save pins.")
         return
       }
       // Pinned again while this save was running: save the newest list too.
@@ -432,15 +529,14 @@ Item {
     printErrors: false
     onFileChanged: reload()
     onLoaded: {
+      if (pinSaver.running && root.pinsState === "ok") return
       var saved = Api.readPinnedStations(text())
       root.pinnedRaw = saved || []
       root.pinsState = saved ? "ok" : "unreadable"
-      if (root.pinsError) root.lastError = root.pinsError
     }
     onLoadFailed: function(error) {
       root.pinnedRaw = []
       root.pinsState = error === FileViewError.FileNotFound ? "ok" : "unreadable"
-      if (root.pinsError) root.lastError = root.pinsError
     }
   }
 

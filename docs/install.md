@@ -14,7 +14,7 @@ omarchy plugin list
 ## 2. Dependencies
 
 ```bash
-omarchy pkg add cava
+omarchy pkg add cava python-pillow
 omarchy pkg aur add pithos
 ```
 
@@ -69,7 +69,7 @@ player:
 ```lua
 o.window("^(io\\.github\\.Pithos|[Pp]ithos)$", {
   workspace = "special:pithos silent",
-  no_focus = true,
+  no_initial_focus = true,
 })
 
 o.window({ title = "^Micro-Pandora$" }, {
@@ -87,7 +87,7 @@ hyprctl reload
 ## 5. Sign in
 
 1. Click the music-note icon on the bar (opens Micro-Pandora).
-2. If nothing is connected, open Pithos from Settings and sign in with your
+2. If nothing is connected, choose **Open Pithos** and sign in with your
    Pandora account.
 3. Pithos stores the password in the system keyring. You should only need to
    do this once.

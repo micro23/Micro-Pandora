@@ -9,6 +9,10 @@ Button {
   property real glyphSize: Style.font.icon
   property real controlSize: Style.space(32)
 
+  Accessible.role: Accessible.Button
+  Accessible.name: root.tooltipText
+  Accessible.onPressAction: if (root.enabled) root.clicked()
+
   width: controlSize
   height: controlSize
   horizontalPadding: 0
