@@ -1,0 +1,605 @@
+#!/usr/bin/env python3
+"""Talk to a running Pithos player over MPRIS. Prints JSON."""
+
+import colorsys
+import json
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+from urllib.parse import unquote, urlsplit
+
+from gi.repository import Gio, GLib
+
+BUS_CANDIDATES = (
+    "org.mpris.MediaPlayer2.io.github.Pithos",
+    "org.mpris.MediaPlayer2.pithos",
+)
+OBJECT = "/org/mpris/MediaPlayer2"
+PLAYER = "org.mpris.MediaPlayer2.Player"
+PLAYLISTS = "org.mpris.MediaPlayer2.Playlists"
+RATINGS = "org.mpris.MediaPlayer2.ExtensionPithosRatings"
+PROPS = "org.freedesktop.DBus.Properties"
+ROOT = "org.mpris.MediaPlayer2"
+PID_FILE = os.path.join(
+    # Owner-only runtime dir; fall back to the user's cache, never shared /tmp.
+    os.environ.get("XDG_RUNTIME_DIR") or os.path.join(os.path.expanduser("~"), ".cache"),
+    "omapandora",
+    "pithos.pid",
+)
+# The AUR package installs Pithos here. Use this path rather than searching
+# $PATH, so a different "pithos" earlier in $PATH is never started.
+PITHOS_BINARY = "/usr/bin/pithos"
+# Same path the QML reads (Service.qml pinFile).
+PINS_FILE = os.path.join(os.path.expanduser("~"), ".config", "omarchy", "omapandora-pins.json")
+MAX_PINS_BYTES = 256 * 1024
+
+
+def session_bus():
+    return Gio.bus_get_sync(Gio.BusType.SESSION, None)
+
+
+def list_names(bus):
+    reply = bus.call_sync(
+        "org.freedesktop.DBus",
+        "/org/freedesktop/DBus",
+        "org.freedesktop.DBus",
+        "ListNames",
+        None,
+        GLib.VariantType.new("(as)"),
+        Gio.DBusCallFlags.NONE,
+        2000,
+        None,
+    )
+    return list(reply.unpack()[0])
+
+
+def find_bus_name(bus):
+    names = list_names(bus)
+    for candidate in BUS_CANDIDATES:
+        if candidate in names:
+            return candidate
+    for name in names:
+        lowered = name.lower()
+        if name.startswith("org.mpris.MediaPlayer2.") and "pithos" in lowered:
+            return name
+    return None
+
+
+def call(bus, name, interface, method, params=None, reply_type=None, timeout=4000):
+    return bus.call_sync(
+        name,
+        OBJECT,
+        interface,
+        method,
+        params,
+        reply_type,
+        Gio.DBusCallFlags.NONE,
+        timeout,
+        None,
+    )
+
+
+def get_all(bus, name, interface):
+    reply = call(
+        bus,
+        name,
+        PROPS,
+        "GetAll",
+        GLib.Variant("(s)", (interface,)),
+        GLib.VariantType.new("(a{sv})"),
+    )
+    return dict(reply.unpack()[0])
+
+
+def unpack_maybe(value):
+    if isinstance(value, GLib.Variant):
+        return unpack_maybe(value.unpack())
+    if isinstance(value, (list, tuple)):
+        return [unpack_maybe(item) for item in value]
+    return value
+
+
+def metadata_map(raw):
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for key, value in raw.items():
+        out[str(key)] = unpack_maybe(value)
+    return out
+
+
+def first_artist(meta):
+    artists = meta.get("xesam:artist") or []
+    if isinstance(artists, str):
+        return clip(artists)
+    if artists:
+        return clip(artists[0])
+    return ""
+
+
+# Everything printed comes from another program, so cap it: status output
+# stays small no matter what Pithos or Pandora sends.
+MAX_TEXT = 512
+MAX_URL = 2048
+MAX_STATIONS = 200
+
+
+def clip(value, limit=MAX_TEXT):
+    return str(value or "")[:limit]
+
+
+def station_id_from_path(path):
+    marker = "/io/github/Pithos/PlaylistId/"
+    text = str(path or "")
+    if text.startswith(marker):
+        return text[len(marker) :]
+    return text.strip("/")
+
+
+def tint(rgb, lightness, saturation_limit):
+    hue, _, saturation = colorsys.rgb_to_hls(*(channel / 255 for channel in rgb))
+    return tuple(
+        round(channel * 255)
+        for channel in colorsys.hls_to_rgb(hue, lightness, min(saturation, saturation_limit))
+    )
+
+
+def luminance(rgb):
+    channels = [channel / 255 for channel in rgb]
+    linear = [
+        value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+        for value in channels
+    ]
+    return sum(value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+
+def readable_tint(rgb, background_luminance, lightness, saturation_limit, minimum_contrast):
+    for level in range(lightness, 101, 2):
+        color = tint(rgb, level / 100, saturation_limit)
+        if (luminance(color) + 0.05) / (background_luminance + 0.05) >= minimum_contrast:
+            return color
+    return (255, 255, 255)
+
+
+def ranked_swatches(image_type, pixels):
+    sample = image_type.new("RGB", (len(pixels), 1))
+    sample.putdata(pixels)
+    quantized = sample.quantize(colors=10)
+    palette = quantized.getpalette()
+    return [
+        (count, palette[index * 3 : index * 3 + 3])
+        for count, index in sorted(quantized.getcolors(), reverse=True)
+    ]
+
+
+def extract_art_palette(url):
+    if not url.startswith("file://"):
+        return {}
+    try:
+        from PIL import Image
+    except ImportError:
+        return {}
+    try:
+        uri = urlsplit(url)
+        if uri.netloc not in ("", "localhost"):
+            return {}
+        with Image.open(unquote(uri.path)) as cover:
+            cover.thumbnail((96, 96))
+            rgba = cover.convert("RGBA")
+            flatten = getattr(rgba, "get_flattened_data", rgba.getdata)
+            pixels = [(red, green, blue) for red, green, blue, alpha in flatten() if alpha >= 128]
+        if not pixels:
+            return {}
+
+        ranked = ranked_swatches(Image, pixels)
+        vivid = [rgb for rgb in pixels if max(rgb) - min(rgb) >= 48 and max(rgb) >= 110]
+        # Sample color separately so bright white or black cover margins cannot
+        # wash out a smaller illustration or lettering.
+        vivid_ranked = ranked_swatches(Image, vivid) if len(vivid) >= max(12, len(pixels) * 0.015) else []
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return {}
+
+    dominant = ranked[0][1]
+    substantial = [(count, rgb) for count, rgb in ranked if count >= len(pixels) * 0.02]
+    candidates = [(count, rgb) for count, rgb in vivid_ranked if count >= len(vivid) * 0.04] or substantial
+    accent = max(candidates, key=lambda pair: (max(pair[1]) - min(pair[1])) * pair[0] ** 0.30)[1]
+    text_tone = max(substantial, key=lambda pair: luminance(pair[1]) * pair[0] ** 0.35)[1]
+
+    def alternate_score(swatch):
+        count, rgb = swatch
+        distance = sum((channel - primary) ** 2 for channel, primary in zip(rgb, accent)) ** 0.5
+        return distance * (max(rgb) - min(rgb) + 24) * count ** 0.35
+
+    alternate = max(candidates, key=alternate_score)[1]
+    base = alternate if vivid_ranked and max(dominant) - min(dominant) < 20 else dominant
+    background = tint(base, 0.16, 0.64)
+    surface_candidates = [tint(rgb, 0.205, 0.70) for rgb in (accent, alternate)]
+    background_alt = max(
+        surface_candidates,
+        key=lambda rgb: sum((channel - base) ** 2 for channel, base in zip(rgb, background)),
+    )
+    lightest_surface = max(luminance(background), luminance(background_alt))
+    colors = {
+        "background": background,
+        "backgroundAlt": background_alt,
+        "foreground": readable_tint(text_tone, lightest_surface, 94, 0.28, 7),
+        "muted": readable_tint(text_tone, lightest_surface, 72, 0.38, 5.5),
+        "accent": readable_tint(accent, lightest_surface, 70, 0.90, 5.5),
+        "accentAlt": readable_tint(alternate, lightest_surface, 62, 0.85, 5.5),
+    }
+    return {role: "#{:02x}{:02x}{:02x}".format(*rgb) for role, rgb in colors.items()}
+
+
+def dump_status(bus, name):
+    player = get_all(bus, name, PLAYER)
+    root = get_all(bus, name, ROOT)
+    playlists = {}
+    try:
+        playlists = get_all(bus, name, PLAYLISTS)
+    except GLib.Error:
+        playlists = {}
+
+    meta = metadata_map(player.get("Metadata") or {})
+    active = playlists.get("ActivePlaylist")
+    station_path = ""
+    station_name = ""
+    if isinstance(active, (list, tuple)) and len(active) == 2:
+        valid, playlist = active
+        if valid and isinstance(playlist, (list, tuple)) and playlist:
+            station_path = clip(playlist[0], MAX_URL)
+            station_name = clip(playlist[1]) if len(playlist) > 1 else ""
+
+    stations = []
+    try:
+        reply = call(
+            bus,
+            name,
+            PLAYLISTS,
+            "GetPlaylists",
+            GLib.Variant("(uusb)", (0, MAX_STATIONS, "Alphabetical", False)),
+            GLib.VariantType.new("(a(oss))"),
+        )
+        for path, title, _icon in reply.unpack()[0][:MAX_STATIONS]:
+            stations.append(
+                {
+                    "id": clip(station_id_from_path(path)),
+                    "path": clip(path, MAX_URL),
+                    "name": clip(title),
+                }
+            )
+    except GLib.Error:
+        stations = []
+
+    rating = float(meta.get("xesam:userRating") or 0)
+    length_us = int(meta.get("mpris:length") or 0)
+    position_us = int(player.get("Position") or 0)
+    art_url = clip(meta.get("mpris:artUrl"), MAX_URL)
+    return {
+        "connected": True,
+        "bus": clip(name),
+        "identity": clip(root.get("Identity") or "Pithos"),
+        "status": clip(player.get("PlaybackStatus") or "Stopped", 32),
+        "title": clip(meta.get("xesam:title")),
+        "artist": first_artist(meta),
+        "album": clip(meta.get("xesam:album")),
+        "artUrl": art_url,
+        "artPalette": extract_art_palette(art_url),
+        "trackId": clip(meta.get("mpris:trackid"), MAX_URL),
+        "loved": rating >= 0.99,
+        "volume": float(player.get("Volume") or 0),
+        "positionMs": int(position_us / 1000),
+        "lengthMs": int(length_us / 1000),
+        "canPlay": bool(player.get("CanPlay")),
+        "canPause": bool(player.get("CanPause")),
+        "canGoNext": bool(player.get("CanGoNext")),
+        "stationPath": station_path,
+        "stationName": station_name,
+        "stations": stations,
+    }
+
+
+def disconnected():
+    return {
+        "connected": False,
+        "bus": "",
+        "identity": "",
+        "status": "Stopped",
+        "title": "",
+        "artist": "",
+        "album": "",
+        "artUrl": "",
+        "artPalette": {},
+        "trackId": "",
+        "loved": False,
+        "volume": 0,
+        "positionMs": 0,
+        "lengthMs": 0,
+        "canPlay": False,
+        "canPause": False,
+        "canGoNext": False,
+        "stationPath": "",
+        "stationName": "",
+        "stations": [],
+    }
+
+
+def print_json(payload):
+    json.dump(payload, sys.stdout, ensure_ascii=False)
+    sys.stdout.write("\n")
+
+
+def require_track(status):
+    track_id = status.get("trackId") or ""
+    if not track_id or track_id.endswith("NoTrack"):
+        raise SystemExit("no current track")
+    return track_id
+
+
+def hide_pithos_window():
+    if not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return
+    try:
+        subprocess.run(
+            [
+                "hyprctl",
+                "dispatch",
+                "hl.dsp.window.move({ window = hl.get_window('class:pithos'), workspace = 'special:pithos', silent = true })",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+    except Exception:
+        pass
+
+
+def launch_pithos():
+    binary = PITHOS_BINARY
+    if not os.access(binary, os.X_OK):
+        raise SystemExit("pithos is not installed")
+    try:
+        bus = session_bus()
+        if find_bus_name(bus):
+            hide_pithos_window()
+            return {"ok": True, "launched": False, "already": True}
+    except Exception:
+        pass
+    # A Pithos this plugin started may still be starting up (not on D-Bus
+    # yet); don't start a second one.
+    if launched_pid() is not None:
+        hide_pithos_window()
+        return {"ok": True, "launched": False, "already": True}
+    child = subprocess.Popen(
+        [binary],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=os.environ.copy(),
+    )
+    # Pithos allows one instance: a second copy hands off to the running one
+    # and exits at once. Only record a PID that is still running.
+    try:
+        child.wait(timeout=1.5)
+        hide_pithos_window()
+        return {"ok": True, "launched": False, "already": True}
+    except subprocess.TimeoutExpired:
+        pass
+    remember_launched(child.pid)
+    hide_pithos_window()
+    return {"ok": True, "launched": True}
+
+
+def remember_launched(pid):
+    try:
+        os.makedirs(os.path.dirname(PID_FILE), mode=0o700, exist_ok=True)
+        with open(PID_FILE, "w") as handle:
+            handle.write(f"{pid}\n")
+    except OSError:
+        pass
+
+
+def forget_launched():
+    try:
+        os.remove(PID_FILE)
+    except OSError:
+        pass
+
+
+def is_pithos(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as handle:
+            args = handle.read().split(b"\0")
+    except OSError:
+        return False
+    return any(os.path.basename(arg) == b"pithos" for arg in args[:2])
+
+
+def launched_pid():
+    """PID of the Pithos this plugin started, if it is still that process."""
+    try:
+        with open(PID_FILE) as handle:
+            pid = int(handle.read().strip())
+    except (OSError, ValueError):
+        return None
+    if not is_pithos(pid):
+        forget_launched()
+        return None
+    return pid
+
+
+def bus_owner_pid(bus, name):
+    try:
+        reply = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetConnectionUnixProcessID",
+            GLib.Variant("(s)", (name,)),
+            GLib.VariantType.new("(u)"),
+            Gio.DBusCallFlags.NONE,
+            2000,
+            None,
+        )
+        return reply.unpack()[0]
+    except Exception:
+        return None
+
+
+def quit_launched(bus, name):
+    """Pause, then quit Pithos only if this plugin started it.
+
+    A Pithos the user opened on their own is paused and left running.
+    """
+    try:
+        call(bus, name, PLAYER, "Pause")
+    except Exception:
+        pass
+    pid = launched_pid()
+    if pid is None or bus_owner_pid(bus, name) != pid:
+        return {"ok": True, "quit": False}
+    try:
+        call(bus, name, ROOT, "Quit")
+    except Exception:
+        pass
+    for _ in range(20):
+        if not is_pithos(pid):
+            break
+        time.sleep(0.1)
+    else:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+    forget_launched()
+    return {"ok": True, "quit": True}
+
+
+def save_pins():
+    """Store the pinned stations (JSON array on stdin) as a private file.
+
+    An existing pins file that can't be read is left alone, so pins the
+    plugin failed to load are never replaced.
+    """
+    raw = sys.stdin.read(MAX_PINS_BYTES + 1)
+    if len(raw) > MAX_PINS_BYTES:
+        raise SystemExit("pin list too large")
+    try:
+        pins = json.loads(raw)
+    except ValueError as error:
+        raise SystemExit(f"pin list is not valid JSON: {error}")
+    if not isinstance(pins, list):
+        raise SystemExit("pin list must be a JSON array")
+    try:
+        with open(PINS_FILE) as handle:
+            text = handle.read(MAX_PINS_BYTES + 1)
+        old = json.loads(text) if text.strip() else []
+    except FileNotFoundError:
+        old = []
+    except (OSError, ValueError):
+        old = None
+    if not isinstance(old, list):
+        raise SystemExit(f"{PINS_FILE} could not be read, so it was not replaced")
+    folder = os.path.dirname(PINS_FILE)
+    os.makedirs(folder, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".omapandora-pins-", dir=folder)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            json.dump(pins, handle, ensure_ascii=False)
+        os.replace(tmp, PINS_FILE)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return {"ok": True, "pins": len(pins)}
+
+
+def main(argv):
+    command = (argv[1] if len(argv) > 1 else "status").strip().lower()
+    argument = argv[2] if len(argv) > 2 else ""
+
+    if command == "launch":
+        print_json(launch_pithos())
+        return 0
+
+    if command == "hide":
+        hide_pithos_window()
+        return 0
+
+    if command == "pins-save":
+        print_json(save_pins())
+        return 0
+
+    bus = session_bus()
+    name = find_bus_name(bus)
+    if not name:
+        if command == "status":
+            print_json(disconnected())
+            return 0
+        raise SystemExit("pithos is not running")
+
+    if command == "status":
+        print_json(dump_status(bus, name))
+        return 0
+
+    if command == "playpause":
+        call(bus, name, PLAYER, "PlayPause")
+    elif command == "play":
+        call(bus, name, PLAYER, "Play")
+    elif command == "pause":
+        call(bus, name, PLAYER, "Pause")
+    elif command == "next":
+        call(bus, name, PLAYER, "Next")
+    elif command == "raise":
+        call(bus, name, ROOT, "Raise")
+    elif command == "quit":
+        print_json(quit_launched(bus, name))
+        return 0
+    elif command == "station":
+        if not argument:
+            raise SystemExit("station path required")
+        call(bus, name, PLAYLISTS, "ActivatePlaylist", GLib.Variant("(o)", (argument,)))
+    elif command in ("love", "ban", "tired", "unrate"):
+        status = dump_status(bus, name)
+        track_id = require_track(status)
+        method = {
+            "love": "LoveSong",
+            "ban": "BanSong",
+            "tired": "TiredSong",
+            "unrate": "UnRateSong",
+        }[command]
+        call(bus, name, RATINGS, method, GLib.Variant("(o)", (track_id,)))
+    elif command == "volume":
+        if argument == "":
+            raise SystemExit("volume 0-1 required")
+        volume = max(0.0, min(1.0, float(argument)))
+        call(
+            bus,
+            name,
+            PROPS,
+            "Set",
+            GLib.Variant("(ssv)", (PLAYER, "Volume", GLib.Variant("d", volume))),
+        )
+    else:
+        raise SystemExit(f"unknown command: {command}")
+
+    print_json({"ok": True, "command": command})
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv))
+    except SystemExit as stop:
+        # Error text can quote D-Bus replies from Pithos; keep it short.
+        if isinstance(stop.code, str):
+            raise SystemExit(clip(stop.code))
+        raise
+    except Exception as error:
+        sys.stderr.write(clip(error) + "\n")
+        raise SystemExit(1)

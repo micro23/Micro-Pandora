@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.dankestrick.omapandora",
+  "name": "Micro-Pandora",
+  "version": "0.2.0",
+  "author": "micro23, Dankestrick and contributors",
+  "license": "MIT",
+  "description": "Pandora for Omarchy, with album-themed players and a live audio spectrum.",
+  "dependencies": [
+    {
+      "name": "python-pillow",
+      "package": "python-pillow",
+      "why": "Extract album cover colors for player backgrounds"
+    },
+    {
+      "name": "pithos",
+      "package": "pithos",
+      "why": "Pandora login and playback daemon"
+    },
+    {
+      "name": "cava",
+      "package": "cava",
+      "why": "Now playing audio visualizer"
+    }
+  ],
+  "kinds": [
+    "service",
+    "bar-widget",
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "qml/Service.qml",
+    "barWidget": "qml/BarWidget.qml",
+    "panel": "qml/Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Micro-Pandora",
+    "description": "Pandora mini player and station browser with album-cover colors.",
+    "category": "Media",
+    "aliases": [
+      "pandora",
+      "pithos",
+      "music",
+      "radio"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "left",
+    "defaults": {
+      "showMiniPlayer": "On",
+      "showTrackTitle": "On",
+      "showArtistName": "Off",
+      "showPausedTrack": "On",
+      "scrollBarText": "Off",
+      "maxBarTextWidth": "240"
+    },
+    "schema": [
+      {
+        "key": "showMiniPlayer",
+        "type": "enum",
+        "label": "Open mini-player from bar",
+        "options": [
+          "On",
+          "Off"
+        ],
+        "defaultValue": "On",
+        "description": "When off, clicking the bar icon opens the full player."
+      },
+      {
+        "key": "showTrackTitle",
+        "type": "enum",
+        "label": "Show track title in bar",
+        "options": [
+          "On",
+          "Off"
+        ],
+        "defaultValue": "On"
+      },
+      {
+        "key": "showArtistName",
+        "type": "enum",
+        "label": "Show artist name in bar",
+        "options": [
+          "On",
+          "Off"
+        ],
+        "defaultValue": "Off"
+      },
+      {
+        "key": "showPausedTrack",
+        "type": "enum",
+        "label": "Show paused track in bar",
+        "options": [
+          "On",
+          "Off"
+        ],
+        "defaultValue": "On"
+      },
+      {
+        "key": "scrollBarText",
+        "type": "enum",
+        "label": "Scroll long bar text",
+        "options": [
+          "On",
+          "Off"
+        ],
+        "defaultValue": "Off"
+      },
+      {
+        "key": "maxBarTextWidth",
+        "type": "string",
+        "label": "Maximum bar text width",
+        "defaultValue": "240",
+        "description": "Width from 160 to 560 px. Use 0 for unlimited."
+      }
+    ]
+  }
+}
