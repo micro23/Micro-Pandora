@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.4
+
+- Keep the backdrop at its intended opacity when switching from the original cover to the high-resolution blur.
+
 ## v0.5.3
 
 - Keep the album silhouette visible when Omarchy still holds an older service in memory. Use the original cover until the high-resolution blur is available.

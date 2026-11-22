@@ -22,8 +22,10 @@ Image {
       if (fadeIn && !hasLoadedCover && !Commons.Style.reduceMotion) entrance.restart()
       hasLoadedCover = true
     } else if (status !== Image.Loading) {
-      entrance.stop()
-      opacity = 1
+      if (fadeIn) {
+        entrance.stop()
+        opacity = 1
+      }
       hasLoadedCover = false
     }
   }
