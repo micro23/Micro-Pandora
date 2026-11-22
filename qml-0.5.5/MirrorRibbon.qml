@@ -6,18 +6,14 @@ Canvas {
 
   required property var levels
   required property var peakLevels
-  required property color low
-  required property color mid
-  required property color high
+  required property var palette
   required property bool playing
   required property real centerHeight
   required property var heightLimit
 
   onLevelsChanged: if (visible) requestPaint()
   onPeakLevelsChanged: if (visible) requestPaint()
-  onLowChanged: requestPaint()
-  onMidChanged: requestPaint()
-  onHighChanged: requestPaint()
+  onPaletteChanged: requestPaint()
   onPlayingChanged: requestPaint()
   onCenterHeightChanged: requestPaint()
   onWidthChanged: requestPaint()
@@ -26,11 +22,12 @@ Canvas {
 
   function colors(ctx, alpha) {
     var glow = ctx.createLinearGradient(0, 0, width, 0)
-    glow.addColorStop(0, Commons.Util.alpha(low, 0))
-    glow.addColorStop(0.15, Commons.Util.alpha(low, alpha))
-    glow.addColorStop(0.49, Commons.Util.alpha(mid, alpha * 0.65))
-    glow.addColorStop(0.85, Commons.Util.alpha(high, alpha))
-    glow.addColorStop(1, Commons.Util.alpha(high, 0))
+    glow.addColorStop(0, Commons.Util.alpha(palette[0], 0))
+    for (var index = 0; index < palette.length; index++) {
+      var position = palette.length > 1 ? index / (palette.length - 1) : 0.5
+      glow.addColorStop(0.10 + position * 0.80, Commons.Util.alpha(palette[index], alpha))
+    }
+    glow.addColorStop(1, Commons.Util.alpha(palette[palette.length - 1], 0))
     return glow
   }
 

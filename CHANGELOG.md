@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.5
+
+- Rank album hues by their visible area so the dominant color leads the stage and main controls.
+- Give playback, stations, progress, volume and artwork their own accent colors. Draw the full five-color palette in Spectrum, Mirror and Orbit.
+
 ## v0.5.4
 
 - Keep the backdrop at its intended opacity when switching from the original cover to the high-resolution blur.

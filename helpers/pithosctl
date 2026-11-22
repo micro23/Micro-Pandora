@@ -196,9 +196,25 @@ def swatch_coordinates(rgb):
     return (math.cos(angle) * chroma, math.sin(angle) * chroma, lightness * 0.42)
 
 
+def hue_swatches(pixels):
+    # Tally each hue family independently. Whole-image quantization can
+    # blend a small colored area into one of the dominant swatches.
+    totals = {}
+    for rgb in pixels:
+        if max(rgb) - min(rgb) < 22:
+            continue
+        hue, _, _ = colorsys.rgb_to_hls(*(channel / 255 for channel in rgb))
+        slot = round(hue * 24) % 24
+        count, red, green, blue = totals.get(slot, (0, 0, 0, 0))
+        totals[slot] = (count + 1, red + rgb[0], green + rgb[1], blue + rgb[2])
+    return [(count, tuple(round(value / count) for value in (red, green, blue)))
+            for count, red, green, blue in totals.values()
+            if count >= max(5, len(pixels) * 0.007)]
+
+
 def choose_art_swatches(ranked, vivid_ranked):
-    # Keep secondary colors with a real presence in the cover. Sample the
-    # vivid subset separately so a small logo survives a large white margin.
+    # Keep secondary colors with a real presence in the cover. Hue counts
+    # also preserve small details that the quantized image may merge.
     population = {}
     for count, rgb in ranked + vivid_ranked:
         population[tuple(rgb)] = max(count, population.get(tuple(rgb), 0))
@@ -213,11 +229,15 @@ def choose_art_swatches(ranked, vivid_ranked):
     def color_strength(rgb):
         return math.hypot(*coordinates[rgb][:2])
 
-    primary = max(candidates, key=lambda rgb: (color_strength(rgb) + 0.035)
-                  * candidates[rgb] ** 0.27)
+    # Area leads the ranking. Give the most common chromatic family the
+    # strongest roles even when a small detail is more saturated.
+    chromatic = {tuple(rgb): count for count, rgb in vivid_ranked
+                 if color_strength(tuple(rgb)) >= 0.075}
+    primary_pool = chromatic or candidates
+    primary = max(primary_pool, key=lambda rgb: (primary_pool[rgb], color_strength(rgb)))
     chosen = [primary]
     accents = [primary]
-    colorful = color_strength(primary) >= 0.09
+    colorful = color_strength(primary) >= 0.075
 
     def separation(rgb):
         if not colorful:
@@ -228,15 +248,16 @@ def choose_art_swatches(ranked, vivid_ranked):
                                                        coordinates[other][0]), math.tau))
                    for other in accents)
 
-    minimum_gap = math.radians(23) if colorful else 0.075
-    for _ in range(3):
+    minimum_gap = math.radians(21) if colorful else 0.075
+    for _ in range(4):
         remaining = [rgb for rgb in candidates if rgb not in chosen
-                     and (not colorful or color_strength(rgb) >= 0.09)
+                     and (not colorful or color_strength(rgb) >= 0.075)
                      and separation(rgb) >= minimum_gap]
         if not remaining:
             break
-        next_color = max(remaining, key=lambda rgb: separation(rgb) ** 0.56
-                         * candidates[rgb] ** 0.22 * (0.17 + color_strength(rgb)))
+        next_color = max(remaining, key=lambda rgb: (chromatic.get(rgb, candidates[rgb])
+                         * (1 if rgb in chromatic else 0.58))
+                         * (0.78 + 0.22 * min(1, separation(rgb))))
         chosen.append(next_color)
         accents.append(next_color)
 
@@ -284,16 +305,12 @@ def extract_art_palette(url):
             return {}
 
         ranked = ranked_swatches(Image, pixels, 18)
-        vivid = [rgb for rgb in pixels if max(rgb) - min(rgb) >= 42 and max(rgb) >= 80]
-        vivid_ranked = []
-        if len(vivid) >= max(12, len(pixels) * 0.015):
-            vivid_ranked = [(count, rgb) for count, rgb in ranked_swatches(Image, vivid, 16)
-                            if count >= max(3, len(vivid) * 0.025)]
+        vivid_ranked = hue_swatches(pixels)
     except (OSError, ValueError, Image.DecompressionBombError):
         return {}
 
     accents, base, surface, text_tone = choose_art_swatches(ranked, vivid_ranked)
-    background = tint(base, 0.15, 0.57)
+    background = tint(accents[0] if vivid_ranked else base, 0.15, 0.65)
     background_alt = tint(surface, 0.21, 0.61)
     lightest_surface = max(luminance(background), luminance(background_alt))
     colors = {
@@ -305,11 +322,12 @@ def extract_art_palette(url):
     # Leave grayscale and limited-palette art recognizable. These related
     # shades fill the remaining UI roles when the cover has fewer hues.
     roles = (("accent", 72, 0.84), ("accentAlt", 64, 0.82),
-             ("volumeAccent", 68, 0.76), ("detailAccent", 58, 0.72))
+             ("volumeAccent", 63, 0.82), ("detailAccent", 59, 0.84),
+             ("artAccent", 63, 0.82))
     for index, (role, lightness, saturation) in enumerate(roles):
         repeated = index >= len(accents)
         if repeated:
-            lightness = (84, 76, 68, 61)[index]
+            lightness = (84, 76, 68, 61, 75)[index]
             saturation *= 0.65
         sample = accents[index % len(accents)]
         color = readable_tint(sample, lightest_surface, lightness, saturation, 5.5)

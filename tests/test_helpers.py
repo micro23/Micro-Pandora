@@ -1,3 +1,4 @@
+import colorsys
 import importlib.machinery
 import importlib.util
 import io
@@ -36,8 +37,13 @@ class AlbumPaletteTests(unittest.TestCase):
         raw = [(1008, tuple(bytes.fromhex(value[1:]))) for value in source]
         accents, base, surface, text = pithosctl.choose_art_swatches(raw, raw[:5])
         self.assertEqual(len(set([*accents, base, surface, text])), 7)
-        roles = ("accent", "accentAlt", "volumeAccent", "detailAccent")
+        roles = ("accent", "accentAlt", "volumeAccent", "detailAccent", "artAccent")
         self.assertEqual(len({palette[role] for role in roles}), len(roles))
+        hues = [colorsys.rgb_to_hls(*(value / 255 for value in bytes.fromhex(palette[role][1:])))[0]
+                for role in roles]
+        for index, hue in enumerate(hues):
+            self.assertTrue(all(min(abs(hue - other), 1 - abs(hue - other)) >= 0.053
+                                for other in hues[:index]))
         surface_luminance = max(pithosctl.luminance(tuple(bytes.fromhex(palette[role][1:])))
                                 for role in ("background", "backgroundAlt"))
         for role in (*roles, "foreground", "muted"):
@@ -52,6 +58,24 @@ class AlbumPaletteTests(unittest.TestCase):
 
         self.assertTrue(all(len(set(bytes.fromhex(value[1:]))) == 1
                             for value in palette.values()))
+
+    def test_the_most_prevalent_hue_leads_the_palette(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cover = Path(tmp) / "prominent.png"
+            image = Image.new("RGB", (96, 96), "#527f9a")
+            image.paste("#f01e54", (75, 0, 96, 96))
+            image.paste("#f2a21c", (60, 0, 75, 96))
+            image.paste("#53a633", (51, 0, 60, 96))
+            image.paste("#8d52aa", (45, 0, 51, 96))
+            image.save(cover)
+            palette = pithosctl.extract_art_palette(cover.as_uri())
+
+        for role in ("background", "accent"):
+            red, green, blue = bytes.fromhex(palette[role][1:])
+            self.assertLess(red, green)
+            self.assertLess(green, blue)
+        self.assertTrue(len({palette[role] for role in
+                             ("accent", "accentAlt", "volumeAccent", "detailAccent", "artAccent")}) == 5)
 
     def test_sparse_accent_colors_survive_a_white_cover(self):
         with tempfile.TemporaryDirectory() as tmp:

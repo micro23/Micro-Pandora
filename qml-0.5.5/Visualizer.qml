@@ -266,9 +266,7 @@ Item {
       visible: root.modeIndex === 1 || opacity > 0.01
       levels: visible ? root.displayLevels : []
       peakLevels: visible && root.animateLevels ? root.peakLevels : []
-      low: root.playing ? root.gradientColor(0) : root.dimColor
-      mid: root.playing ? root.gradientColor((root.barCount - 1) / 2) : root.dimColor
-      high: root.playing ? root.gradientColor(root.barCount - 1) : root.dimColor
+      palette: root.playing && root.barColors.length ? root.barColors : [root.dimColor]
       playing: root.playing
 
       Behavior on opacity {

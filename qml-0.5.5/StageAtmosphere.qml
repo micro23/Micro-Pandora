@@ -69,7 +69,7 @@ Canvas {
     ctx.globalAlpha = 1
 
     light(ctx, width * 0.13, height * 0.24, width * 0.55, secondary, 0.16)
-    light(ctx, width * 0.87, height * 0.32, width * 0.52, primary, 0.16)
+    light(ctx, width * 0.87, height * 0.32, width * 0.57, primary, 0.20)
     light(ctx, width * 0.50, height * 0.89, width * 0.48, bounceLight,
       mode === 2 ? 0.12 : 0.085)
 

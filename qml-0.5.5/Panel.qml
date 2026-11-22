@@ -42,6 +42,7 @@ Item {
     || (lightTheme ? Qt.tint(Commons.Color.accent, Qt.rgba(1, 1, 1, 0.55)) : Commons.Color.accent)
   property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
   property color volumeAccent: artPalette.volumeAccent || accentAlt
+  property color artAccent: artPalette.artAccent || accentAlt
   property color detailAccent: artPalette.detailAccent || accent
   property color muted: artPalette.muted
     || (lightTheme ? "#b1b5c2" : Qt.tint(foreground, Util.alpha(background, 0.30)))
@@ -52,6 +53,7 @@ Item {
   Behavior on accent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on alternateSurface { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on volumeAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on artAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on detailAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on accentAlt { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on muted { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
@@ -813,7 +815,7 @@ Item {
                 current: visualizer.modeIndex
                 foreground: root.foreground
                 muted: root.muted
-                accent: root.detailAccent
+                accent: root.accent
                 onChosen: function(mode) { root.selectVisualizer(mode) }
               }
 
@@ -913,7 +915,7 @@ Item {
                   baseColor: root.background
                   primary: root.accent
                   secondary: root.accentAlt
-                  bounceLight: root.detailAccent
+                  bounceLight: root.artAccent
                   washOpacity: windowBackdrop.silhouetteReady ? 0.35 : 0.83
                   horizon: 0.69
                   mode: visualizer.modeIndex
@@ -956,7 +958,7 @@ Item {
                       color: Qt.darker(root.background, 1.32)
                       foreground: root.foreground
                       accent: root.accent
-                      accentAlt: root.accentAlt
+                      accentAlt: root.artAccent
                       tinted: true
                       glow: heroArt.hasArtwork
                       lightLevel: visualizer.stageEnergy
@@ -1126,7 +1128,7 @@ Item {
                         Math.min(nowPlayingMeta.width, heroTitle.implicitWidth + Style.space(64)))
                   playing: !!(root.service && root.service.playing)
                   active: root.opened && root.currentTab === "nowplaying"
-                  barColors: [root.accentAlt, root.detailAccent, root.volumeAccent, root.accent]
+                  barColors: [root.accentAlt, root.detailAccent, root.accent, root.artAccent, root.volumeAccent]
                   dimColor: root.muted
                 }
               }

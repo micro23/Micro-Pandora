@@ -262,6 +262,7 @@ BarWidget {
       || (lightTheme ? Qt.tint(Commons.Color.accent, Qt.rgba(1, 1, 1, 0.55)) : Commons.Color.accent)
     property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
     property color volumeAccent: artPalette.volumeAccent || accentAlt
+    property color artAccent: artPalette.artAccent || accentAlt
     property color detailAccent: artPalette.detailAccent || accent
     property color surface: artPalette.background
       ? Qt.tint(artPalette.background, Qt.rgba(0, 0, 0, 0.35))
@@ -275,6 +276,7 @@ BarWidget {
     Behavior on accent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
     Behavior on accentAlt { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
     Behavior on volumeAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on artAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
     Behavior on detailAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
 
     borderSpec: Border.flat(Util.alpha(popup.accentAlt, 0.31), 1)
@@ -397,7 +399,7 @@ BarWidget {
         visible: popup.connected
         baseColor: Qt.tint(popup.surface, Util.alpha(popup.accentAlt, 0.07))
         accent: popup.accentAlt
-        secondaryAccent: popup.accent
+        secondaryAccent: popup.artAccent
         themed: true
         litEdge: true
 
@@ -415,7 +417,7 @@ BarWidget {
             color: popup.surface
             foreground: popup.foreground
             accent: popup.accent
-            accentAlt: popup.accentAlt
+            accentAlt: popup.artAccent
             tinted: true
             glow: miniArt.hasArtwork
             lightLevel: popup.playing ? 0.28 : 0
