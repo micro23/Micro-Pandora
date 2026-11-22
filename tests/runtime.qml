@@ -6,7 +6,7 @@ ShellRoot {
   id: root
 
   function component(name) {
-    var url = "file://" + Quickshell.env("MICRO_PANDORA_TEST_ROOT") + "/qml/" + name + ".qml"
+    var url = "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI") + "/" + name + ".qml"
     var result = Qt.createComponent(url)
     check(result.status === Component.Ready, name + ": " + result.errorString())
     return result
@@ -66,6 +66,27 @@ ShellRoot {
         visualizer.parseFrame("0;".repeat(56))
         root.check(quietLevels === visualizer.levels, "repeated silence leaves the spectrum settled")
         visualizer.destroy()
+
+        var orbit = root.component("OrbitBands").createObject(null, {
+          width: 980, height: 310, playing: true, motionEnabled: false,
+          guideColor: "#acf", tones: Array(56).fill(Qt.rgba(0.5, 0.8, 1, 1)),
+          levels: Array(56).fill(0.04)
+        })
+        var floor = orbit.originY
+        var lowHit = Array(9).fill(0.98).concat(Array(47).fill(0.17))
+        orbit.levels = lowHit
+        var peakLift = 0
+        for (var hitFrame = 0; hitFrame < 23; hitFrame++) {
+          orbit.advance(0.016)
+          peakLift = Math.max(peakLift, orbit.lift)
+        }
+        root.check(orbit.phase > 0.5 && peakLift >= 0.5 && orbit.originY < floor - 13,
+                   "Orbit turns and lifts on a bass hit")
+        orbit.levels = Array(56).fill(0.03)
+        for (var releaseFrame = 0; releaseFrame < 60; releaseFrame++) orbit.advance(0.016)
+        root.check(orbit.lift < peakLift * 0.18, "Orbit settles after the hit")
+        root.check(!orbit.moving && !orbit.settling, "Orbit respects reduced motion")
+        orbit.destroy()
 
         var service = root.component("Service").createObject(null)
         function snapshot() {

@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## v0.5.0
 
 - Rebuild the full and mini players around album-tinted surfaces, larger artwork, and a unified transport. Crossfade covers once the next image is ready.
-- Redesign Spectrum, Mirror, and Orbit with a direct visualizer picker.
+- Redesign Spectrum and Mirror with sharper peaks, brighter ribbons, and more visible reflections.
+- Make Orbit rotate and lift on bass hits, with counter-rotating sweeps and expanding pulses.
+- Add a sliding visualizer picker, album lighting, track transitions, and a labeled Stations control.
+- Remember the station sidebar and selected visualizer across restarts.
 - Hide and restore the station sidebar from the header or with Ctrl+B.
+- Load the updated player and bar widget after an upgrade through versioned QML entry points.
 
 ## v0.4.0
 

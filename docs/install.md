@@ -54,7 +54,7 @@ omarchy plugin enable io.github.dankestrick.omapandora left
 omarchy restart shell
 ```
 
-That copies `manifest.json`, `qml/`, and `helpers/` only. Do **not** symlink
+That copies `manifest.json`, the versioned QML directory, and `helpers/` only. Do **not** symlink
 the plugin folder. Omarchy rejects plugin trees that are symlinks.
 
 `install.sh` only replaces a plugin folder it created itself that still holds

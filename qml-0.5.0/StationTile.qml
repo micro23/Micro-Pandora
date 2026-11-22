@@ -26,6 +26,22 @@ Button {
   borderSpec: Border.flat(Util.alpha(accent, currentStation ? 0.25 : selected || bordered ? 0.18 : 0), 1)
   rightPadding: playingStation ? Style.space(24) : horizontalPadding
 
+  Rectangle {
+    anchors.left: parent.left
+    anchors.leftMargin: Style.space(4)
+    anchors.verticalCenter: parent.verticalCenter
+    width: Style.space(2)
+    height: parent.height * 0.55
+    radius: width / 2
+    color: root.accent
+    visible: root.currentStation
+    opacity: root.playingStation ? 0.86 : 0.44
+
+    Behavior on opacity {
+      NumberAnimation { duration: Style.duration(145); easing.type: Easing.OutCubic }
+    }
+  }
+
   PlaybackIndicator {
     anchors.verticalCenter: parent.verticalCenter
     anchors.right: parent.right

@@ -220,7 +220,7 @@ BarWidget {
     bar: root.bar
     owner: root
     open: root.popupOpen
-    contentWidth: fittedContentWidth(Style.space(405))
+    contentWidth: fittedContentWidth(Style.space(412))
     contentHeight: fittedContentHeight(contentColumn.implicitHeight, Style.space(560))
 
     // The mini player is a full-screen overlay that forwards bar clicks but
@@ -383,11 +383,13 @@ BarWidget {
 
       DeckSurface {
         width: parent.width
-        height: miniDetails.implicitHeight + Style.space(22)
+        height: miniDetails.implicitHeight + Style.space(25)
         visible: popup.connected
         baseColor: Qt.tint(popup.surface, Util.alpha(popup.accentAlt, 0.07))
         accent: popup.accentAlt
+        secondaryAccent: popup.accent
         themed: true
+        litEdge: true
 
         RowLayout {
           id: miniDetails
@@ -397,14 +399,16 @@ BarWidget {
           spacing: Style.space(12)
 
           AlbumFrame {
-            Layout.preferredWidth: Style.space(91)
-            Layout.preferredHeight: Style.space(91)
+            Layout.preferredWidth: Style.space(98)
+            Layout.preferredHeight: Style.space(98)
             radius: Style.space(8)
             color: popup.surface
             foreground: popup.foreground
             accent: popup.accent
             accentAlt: popup.accentAlt
             tinted: true
+            glow: miniArt.hasArtwork
+            lightLevel: popup.playing ? 0.28 : 0
 
             CoverTransition {
               id: miniArt
@@ -425,8 +429,15 @@ BarWidget {
           }
 
           ColumnLayout {
+            id: miniMetadata
             Layout.fillWidth: true
-            spacing: Style.space(2)
+            spacing: Style.space(3)
+
+            TrackFade {
+              trackKey: miniTitle.text + "\n" + (root.pandora ? root.pandora.artist : "")
+              target: miniMetadata
+              shown: root.popupOpen
+            }
 
             RowLayout {
               Layout.fillWidth: true
@@ -454,6 +465,7 @@ BarWidget {
             }
 
             Text {
+              id: miniTitle
               Layout.fillWidth: true
               textFormat: Text.PlainText
               text: root.pandora && root.pandora.title ? root.pandora.title : "Nothing playing"

@@ -507,7 +507,9 @@ Item {
               enabled: !root.sidebarCollapsed
               baseColor: root.surface
               accent: root.accentAlt
+              secondaryAccent: root.accent
               themed: true
+              litEdge: true
               radius: Style.space(16)
 
               ColumnLayout {
@@ -726,12 +728,13 @@ Item {
               anchors.left: parent.left
               anchors.right: parent.right
               anchors.top: parent.top
-              height: Style.space(41)
-              spacing: Style.space(7)
+              height: Style.space(44)
+              spacing: Style.space(8)
 
               TransportButton {
                 id: sidebarToggle
                 objectName: "stationSidebarToggle"
+                Layout.preferredWidth: stationToggleContent.implicitWidth + Style.space(23)
                 controlSize: Style.space(36)
                 radius: Style.space(9)
                 foreground: root.accentAlt
@@ -742,23 +745,39 @@ Item {
                 Accessible.checked: !root.sidebarCollapsed
                 onClicked: root.toggleSidebar()
 
-                Rectangle {
-                  width: Style.space(16)
-                  height: Style.space(13)
+                Row {
+                  id: stationToggleContent
                   anchors.centerIn: parent
-                  color: "transparent"
-                  radius: Style.space(2)
-                  border.width: 1
-                  border.color: root.accentAlt
+                  spacing: Style.space(6)
 
                   Rectangle {
-                    width: Style.space(5)
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 1
-                    color: Util.alpha(root.accentAlt, root.sidebarCollapsed ? 0.14 : 0.59)
-                    Behavior on color { ColorAnimation { duration: Style.duration(150) } }
+                    width: Style.space(16)
+                    height: Style.space(13)
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: "transparent"
+                    radius: Style.space(2)
+                    border.width: 1
+                    border.color: root.accentAlt
+
+                    Rectangle {
+                      width: Style.space(5)
+                      anchors.left: parent.left
+                      anchors.top: parent.top
+                      anchors.bottom: parent.bottom
+                      anchors.margins: 1
+                      color: Util.alpha(root.accentAlt, root.sidebarCollapsed ? 0.14 : 0.59)
+                      Behavior on color { ColorAnimation { duration: Style.duration(150) } }
+                    }
+                  }
+
+                  Text {
+                    textFormat: Text.PlainText
+                    text: "Stations"
+                    color: root.foreground
+                    anchors.verticalCenter: parent.verticalCenter
+                    font.family: root.displayFamily
+                    font.pixelSize: Style.font.bodySmall
+                    font.weight: Font.DemiBold
                   }
                 }
               }
@@ -870,7 +889,7 @@ Item {
                 id: stage
                 anchors.fill: parent
                 visible: root.currentTab === "nowplaying"
-                color: root.surface
+                color: "transparent"
                 radius: Style.space(18)
                 borderSpec: Border.flat(Util.alpha(root.accentAlt,
                   root.sidebarCollapsed || root.browseTarget !== "player" ? 0.21 : 0.43), 1)
@@ -881,9 +900,10 @@ Item {
                   baseColor: root.background
                   primary: root.accent
                   secondary: root.accentAlt
-                  horizon: 0.68
+                  horizon: 0.69
+                  mode: visualizer.modeIndex
                   cornerRadius: Style.space(16)
-                  opacity: 0.95
+                  opacity: 0.83
                 }
 
                 Item {
@@ -905,11 +925,11 @@ Item {
                     width: heroStage.compact
                       ? Math.min(parent.width, coverSize + columnSpacing + textWidth)
                       : parent.width
-                    rowSpacing: Style.space(21)
-                    columnSpacing: Style.space(31)
+                    rowSpacing: Style.space(23)
+                    columnSpacing: Style.space(34)
                     readonly property real coverSize: heroStage.compact
-                      ? Math.max(1, Math.min(Style.space(244), heroStage.height, heroStage.width * 0.36))
-                      : Math.min(Style.space(350), heroStage.width,
+                      ? Math.max(1, Math.min(Style.space(264), heroStage.height, heroStage.width * 0.36))
+                      : Math.min(Style.space(495), heroStage.width * 0.66,
                           Math.max(1, heroStage.height - metadataReserve))
                     readonly property real textWidth: Math.min(Style.space(465), heroStage.width * 0.56)
                     readonly property real metadataReserve: nowPlayingMeta.implicitHeight + rowSpacing
@@ -918,13 +938,17 @@ Item {
                       Layout.preferredWidth: nowPlayingHero.coverSize
                       Layout.preferredHeight: nowPlayingHero.coverSize
                       Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                      radius: Style.space(13)
+                      radius: Style.space(15)
                       color: Qt.darker(root.background, 1.32)
                       foreground: root.foreground
                       accent: root.accent
                       accentAlt: root.accentAlt
                       tinted: true
                       glow: heroArt.hasArtwork
+                      lightLevel: visualizer.stageEnergy
+                      transform: Translate {
+                        y: visualizer.modeIndex === 2 ? -Style.space(12) * visualizer.stageEnergy : 0
+                      }
 
                       CoverTransition {
                         id: heroArt
@@ -952,6 +976,12 @@ Item {
                       Layout.alignment: heroStage.compact ? Qt.AlignLeft | Qt.AlignVCenter : Qt.AlignHCenter
                       spacing: Style.space(5)
 
+                      TrackFade {
+                        trackKey: heroTitle.text + "\n" + (root.service ? root.service.artist : "")
+                        target: nowPlayingMeta
+                        shown: root.opened && root.currentTab === "nowplaying"
+                      }
+
                       Text {
                         id: heroTitle
                         width: parent.width
@@ -960,8 +990,8 @@ Item {
                           ? root.service.title : "Nothing playing"
                         color: root.foreground
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 2.21,
-                          Math.max(Style.font.displayLarge * 1.20, heroStage.height * 0.119),
+                        font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 2.76,
+                          Math.max(Style.font.displayLarge * 1.20, heroStage.height * 0.125),
                           heroStage.compact ? nowPlayingMeta.width * 0.20 : heroStage.width * 0.125))
                         font.weight: Font.Bold
                         font.letterSpacing: -Style.space(1.7)
@@ -1247,7 +1277,9 @@ Item {
           height: Style.space(96)
           baseColor: root.surface
           accent: root.accentAlt
+          secondaryAccent: root.accent
           themed: true
+          litEdge: true
           emphasized: root.browseTarget === "player" && !root.sidebarCollapsed
           radius: Style.space(16)
 

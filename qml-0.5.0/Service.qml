@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore as Core
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
@@ -32,9 +33,10 @@ Item {
   property alias stationSidebarCollapsed: viewPreferences.sidebarCollapsed
   property alias visualizerMode: viewPreferences.visualizerMode
 
-  PersistentProperties {
+  Core.Settings {
     id: viewPreferences
-    reloadableId: "micro-pandora-view"
+    location: Qt.resolvedUrl("file://" + Quickshell.stateDir + "/micro-pandora-view.ini")
+    category: "Player"
     property bool sidebarCollapsed: false
     property int visualizerMode: 0
   }

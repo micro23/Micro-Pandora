@@ -111,7 +111,7 @@ Item {
       readonly property real peakHeight: limit * (root.peaks[index] || level)
 
       x: (index + 0.5) * root.pitch - width / 2
-      width: Math.max(1, root.pitch * 0.19)
+      width: Math.max(1, root.pitch * (0.15 + level * 0.14))
       height: root.height
       opacity: Math.min(1, (index + 1) / 6, (root.bands - index) / 6)
 
@@ -121,7 +121,7 @@ Item {
         y: root.floorY - height + 1
         opacity: root.playing ? 1 : 0.27
         gradient: Gradient {
-          GradientStop { position: 0; color: Qt.lighter(band.tone, 1.25) }
+          GradientStop { position: 0; color: Qt.lighter(band.tone, 1.18 + band.level * 0.19) }
           GradientStop { position: 0.44; color: Commons.Util.alpha(band.tone, 0.71) }
           GradientStop { position: 1; color: Commons.Util.alpha(band.tone, 0.10) }
         }
@@ -132,7 +132,10 @@ Item {
         height: Math.max(0, Math.min(root.height - root.floorY - 4, band.stemHeight * 0.12))
         y: root.floorY + 3
         opacity: 0.20 * Math.min(1, band.level * 1.65)
-        color: band.tone
+        gradient: Gradient {
+          GradientStop { position: 0; color: band.tone }
+          GradientStop { position: 1; color: Commons.Util.alpha(band.tone, 0) }
+        }
       }
 
       Rectangle {

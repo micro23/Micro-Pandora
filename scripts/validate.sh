@@ -8,7 +8,8 @@ echo "omarchy plugin validate ok"
 # Every Text item must say how to render its text. Qt's default (AutoText)
 # renders anything that looks like HTML, so Pandora metadata could make the
 # shell load remote images. Plain text only.
-python3 - "$ROOT/qml" <<'PY'
+UI="$(dirname "$(jq -er '.entryPoints.panel' "$ROOT/manifest.json")")"
+python3 - "$ROOT/$UI" <<'PY'
 import pathlib, re, sys
 bad = []
 for path in sorted(pathlib.Path(sys.argv[1]).glob("*.qml")):

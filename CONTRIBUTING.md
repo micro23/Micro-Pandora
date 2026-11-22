@@ -2,7 +2,7 @@
 
 Read [LAYOUT.md](LAYOUT.md) first. New files go in the folder that table names.
 
-1. Edit in your clone of this repo (`qml/` for UI, `helpers/` for pithosctl/cava).
+1. Edit in your clone of this repo (the versioned `qml-*/` folder for UI, `helpers/` for pithosctl/cava).
 2. Copy into the live plugin folder:
 
    ```bash

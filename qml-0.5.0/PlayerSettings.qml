@@ -62,23 +62,52 @@ Flickable {
         anchors.margins: Style.space(21)
         spacing: Style.space(11)
 
-        CardHeading {
+        RowLayout {
           Layout.fillWidth: true
-          title: "Pandora account"
-          symbol: "󰍂"
-          tone: root.accent
+
+          CardHeading {
+            Layout.fillWidth: true
+            title: "Pandora account"
+            symbol: "󰍂"
+            tone: root.accent
+          }
+
+          Rectangle {
+            visible: root.account && root.account.hasStations
+            Layout.preferredWidth: connectionStatus.implicitWidth + Style.space(19)
+            Layout.preferredHeight: Style.space(25)
+            radius: height / 2
+            color: Util.alpha(root.accentAlt, 0.13)
+            border.width: 1
+            border.color: Util.alpha(root.accentAlt, 0.23)
+
+            Text {
+              id: connectionStatus
+              anchors.centerIn: parent
+              textFormat: Text.PlainText
+              text: "Connected"
+              color: root.accentAlt
+              font.family: root.displayFamily
+              font.pixelSize: Style.font.caption
+              font.weight: Font.DemiBold
+            }
+          }
         }
 
         Text {
           Layout.fillWidth: true
           textFormat: Text.PlainText
           text: root.account && root.account.hasStations
-            ? "Connected. Saving different credentials reconnects playback."
-            : "Sign in here to load your stations. Your password is saved in the desktop keyring."
+            ? "Saving different credentials reconnects playback."
+            : "Sign in to load your stations. Your password is saved in the desktop keyring."
           color: root.muted
           font.family: root.displayFamily
           font.pixelSize: Style.font.body
           wrapMode: Text.WordWrap
+        }
+
+        FieldLabel {
+          text: "Pandora email"
         }
 
         AccountField {
@@ -87,7 +116,7 @@ Flickable {
           Layout.preferredHeight: Style.space(40)
           enabled: root.formReady && !root.busy
           text: root.account ? root.account.email : ""
-          placeholderText: "Pandora email"
+          placeholderText: "Email address"
           Accessible.name: "Pandora email"
           maximumLength: 320
           inputMethodHints: Qt.ImhEmailCharactersOnly | Qt.ImhNoPredictiveText
@@ -96,19 +125,44 @@ Flickable {
           onAccepted: passwordField.forceActiveFocus()
         }
 
+        FieldLabel {
+          text: "Pandora password"
+        }
+
         AccountField {
           id: passwordField
           Layout.fillWidth: true
           Layout.preferredHeight: Style.space(40)
           enabled: root.formReady && !root.busy
-          placeholderText: "Pandora password"
+          placeholderText: "Password"
           Accessible.name: "Pandora password"
           password: true
+          rightPadding: revealPassword.visible ? revealPassword.width + Style.space(8) : horizontalPadding
           inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
           maximumLength: 4096
           foreground: root.foreground
           accent: root.accent
-          onAccepted: root.submit()
+          onAccepted: {
+            revealed = false
+            root.submit()
+          }
+          onTextChanged: if (!text) revealed = false
+
+          TransportButton {
+            id: revealPassword
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(4)
+            anchors.verticalCenter: parent.verticalCenter
+            visible: passwordField.length > 0
+            controlSize: Style.space(29)
+            glyphText: passwordField.revealed ? "󰍶" : "󰈈"
+            foreground: root.accentAlt
+            accent: root.accentAlt
+            tooltipText: passwordField.revealed ? "Hide password" : "Show password"
+            Accessible.checkable: true
+            Accessible.checked: passwordField.revealed
+            onClicked: passwordField.revealed = !passwordField.revealed
+          }
         }
 
         Button {
@@ -213,6 +267,15 @@ Flickable {
       }
     }
   }
+  component FieldLabel: Text {
+    Layout.fillWidth: true
+    textFormat: Text.PlainText
+    color: root.foreground
+    font.family: root.displayFamily
+    font.pixelSize: Style.font.bodySmall
+    font.weight: Font.DemiBold
+  }
+
   component AccountField: TextField {
     id: input
     font.family: root.displayFamily

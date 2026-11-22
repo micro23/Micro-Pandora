@@ -8,12 +8,14 @@ Canvas {
   required property color primary
   required property color secondary
   property real horizon: 0.80
+  property int mode: 0
   property real cornerRadius: 0
 
   onBaseColorChanged: requestPaint()
   onPrimaryChanged: requestPaint()
   onSecondaryChanged: requestPaint()
   onHorizonChanged: requestPaint()
+  onModeChanged: requestPaint()
   onCornerRadiusChanged: requestPaint()
   onWidthChanged: requestPaint()
   onHeightChanged: requestPaint()
@@ -50,15 +52,25 @@ Canvas {
     }
 
     var wash = ctx.createLinearGradient(0, 0, width * 0.42, height)
-    wash.addColorStop(0, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.42)))
-    wash.addColorStop(0.58, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.62)))
-    wash.addColorStop(1, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.76)))
+    wash.addColorStop(0, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.48)))
+    wash.addColorStop(0.52, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.72)))
+    wash.addColorStop(1, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.85)))
     ctx.fillStyle = wash
     ctx.fillRect(0, 0, width, height)
 
-    light(ctx, width * 0.24, height * 0.31, width * 0.52, secondary, 0.18)
-    light(ctx, width * 0.83, height * 0.38, width * 0.54, primary, 0.21)
-    light(ctx, width * 0.50, height * horizon, width * 0.39, primary, 0.10)
+    light(ctx, width * 0.17, height * 0.26, width * 0.49, secondary, 0.25)
+    light(ctx, width * 0.83, height * 0.34, width * 0.51, primary, 0.29)
+    light(ctx, width * 0.52, height * 0.68, width * 0.31, mode === 2 ? secondary : primary,
+      mode === 2 ? 0.18 : 0.07)
+
+    var edgeLight = ctx.createLinearGradient(0, 0, width, 0)
+    edgeLight.addColorStop(0, Commons.Util.alpha(secondary, 0))
+    edgeLight.addColorStop(0.23, Commons.Util.alpha(secondary, 0.32))
+    edgeLight.addColorStop(0.5, Commons.Util.alpha(secondary, 0.09))
+    edgeLight.addColorStop(0.76, Commons.Util.alpha(primary, 0.34))
+    edgeLight.addColorStop(1, Commons.Util.alpha(primary, 0))
+    ctx.fillStyle = edgeLight
+    ctx.fillRect(radius, 0, Math.max(0, width - radius * 2), 1)
 
     var y = height * horizon
     var grid = ctx.createLinearGradient(0, y, 0, height)

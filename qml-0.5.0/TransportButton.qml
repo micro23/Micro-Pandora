@@ -32,6 +32,26 @@ Button {
     GradientStop { position: 1; color: Qt.tint(root.accent, Qt.rgba(1, 1, 1, root.hot ? 0.38 : 0.21)) }
   }
 
+  Rectangle {
+    anchors.fill: parent
+    anchors.margins: -Style.space(3)
+    radius: width / 2
+    color: "transparent"
+    border.width: 1
+    border.color: Util.alpha(root.accentAlt, 0.56)
+    visible: root.primary && root.enabled
+    opacity: root.hot ? 0.84 : 0.40
+    scale: root.hot ? 1 : 0.96
+    z: -1
+
+    Behavior on opacity {
+      NumberAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic }
+    }
+    Behavior on scale {
+      NumberAnimation { duration: Style.duration(165); easing.type: Easing.OutCubic }
+    }
+  }
+
   readonly property int renderedGlyphSize: Math.max(1, Math.round(glyphSize))
   readonly property real tightGlyphWidth: Math.max(1,
     glyphMetrics.tightBoundingRect.width)

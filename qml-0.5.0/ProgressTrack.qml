@@ -38,7 +38,8 @@ Item {
       gradient: Gradient {
         orientation: Gradient.Horizontal
         GradientStop { position: 0; color: root.accentAlt }
-        GradientStop { position: 1; color: root.accent }
+        GradientStop { position: 0.66; color: Qt.tint(root.accentAlt, Util.alpha(root.accent, 0.64)) }
+        GradientStop { position: 1; color: Qt.lighter(root.accent, 1.13) }
       }
 
       Behavior on width {
@@ -49,11 +50,20 @@ Item {
       Rectangle {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(7)
+        width: Style.space(8)
         height: width
         radius: width / 2
         visible: parent.width >= width
-        color: Qt.tint(root.accent, Util.alpha(root.foreground, 0.30))
+        color: Qt.tint(root.accent, Util.alpha(root.foreground, 0.41))
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: parent.width * 1.65
+          height: width
+          radius: width / 2
+          color: Util.alpha(root.accent, 0.19)
+          z: -1
+        }
       }
     }
   }

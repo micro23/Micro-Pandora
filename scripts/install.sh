@@ -14,6 +14,12 @@ set -euo pipefail
 ID="io.github.dankestrick.omapandora"
 MARKER=".omapandora-dev-install"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+UI="$(dirname "$(jq -er '.entryPoints.panel' "$ROOT/manifest.json")")"
+UI_PATTERN='qml(-[0-9]+(\.[0-9]+){2})?'
+if [[ ! "$UI" =~ ^${UI_PATTERN}$ ]]; then
+  echo "Invalid QML directory in manifest: $UI" >&2
+  exit 1
+fi
 PLUGINS="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins"
 DEST="$PLUGINS/$ID"
 
@@ -27,7 +33,7 @@ refuse() {
 }
 
 # Files the marker says this script installed: listed[relative path]=sha256.
-declare -A listed=()
+declare -A listed=() listed_dirs=()
 
 read_marker() {
   local line hash rel
@@ -36,29 +42,28 @@ read_marker() {
     hash="${line%%  *}"
     rel="${line#*  }"
     if [[ ! "$hash" =~ ^[0-9a-f]{64}$ ]] \
-      || [[ ! "$rel" =~ ^(manifest\.json|(qml|helpers)/[A-Za-z0-9._-]+)$ ]]; then
+      || [[ ! "$rel" =~ ^(manifest\.json|(${UI_PATTERN}|helpers)/[A-Za-z0-9._-]+)$ ]]; then
       refuse "$DEST/$MARKER is not a file list written by this script."
     fi
     listed["$rel"]="$hash"
+    if [[ "$rel" == */* ]]; then listed_dirs["${rel%%/*}"]=1; fi
   done < "$DEST/$MARKER"
   [ "${#listed[@]}" -gt 0 ] || refuse "$DEST/$MARKER lists no files."
 }
 
-# Succeeds only if every entry in DEST is the marker, the qml/ or helpers/
-# folder, or a listed file that is byte-for-byte what was installed.
+# Succeeds only if every entry in DEST is the marker, a listed parent
+# directory, or a listed file that is byte-for-byte what was installed.
 check_dest() {
   local problems=() path rel sum
   while IFS= read -r -d '' path; do
     rel="${path#"$DEST"/}"
-    case "$rel" in
-      "$MARKER") continue ;;
-      qml|helpers)
-        if [ -L "$path" ] || [ ! -d "$path" ]; then
-          problems+=("$rel (not a plain folder)")
-        fi
-        continue
-        ;;
-    esac
+    [[ "$rel" != "$MARKER" ]] || continue
+    if [[ -n "${listed_dirs[$rel]+set}" ]]; then
+      if [ -L "$path" ] || [ ! -d "$path" ]; then
+        problems+=("$rel (not a plain folder)")
+      fi
+      continue
+    fi
     if [ -L "$path" ] || [ ! -f "$path" ]; then
       problems+=("$rel (not a regular file)")
     elif [ -z "${listed[$rel]+set}" ]; then
@@ -95,15 +100,15 @@ fi
 # copy never leaves a half-written plugin behind.
 STAGE="$(mktemp -d "$PLUGINS/.$ID.new.XXXXXX")"
 trap 'rm -rf -- "$STAGE"' EXIT
-mkdir "$STAGE/qml" "$STAGE/helpers"
+mkdir "$STAGE/$UI" "$STAGE/helpers"
 cp "$ROOT/manifest.json" "$STAGE/manifest.json"
-cp "$ROOT/qml/"* "$STAGE/qml/"
+cp "$ROOT/$UI/"* "$STAGE/$UI/"
 cp "$ROOT/helpers/"* "$STAGE/helpers/"
 chmod +x "$STAGE/helpers/pithosctl" "$STAGE/helpers/cava-run" "$STAGE/helpers/setup-deps"
 {
   echo "# Created by Micro-Pandora scripts/install.sh. It replaces this folder only"
   echo "# while it holds exactly these files, unchanged."
-  (cd "$STAGE" && find manifest.json qml helpers -type f -print0 | sort -z | xargs -0 sha256sum)
+  (cd "$STAGE" && find manifest.json "$UI" helpers -type f -print0 | sort -z | xargs -0 sha256sum)
 } > "$STAGE/$MARKER"
 chmod 755 "$STAGE"
 
@@ -123,7 +128,7 @@ if [ -d "$DEST" ]; then
     rm -f -- "$OLD/plugin/$rel"
   done
   rm -f -- "$OLD/plugin/$MARKER"
-  for dir in qml helpers; do
+  for dir in "${!listed_dirs[@]}"; do
     [ -d "$OLD/plugin/$dir" ] && { rmdir -- "$OLD/plugin/$dir" 2>/dev/null || true; }
   done
   if ! rmdir -- "$OLD/plugin" "$OLD" 2>/dev/null; then

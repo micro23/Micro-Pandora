@@ -29,6 +29,14 @@ Item {
   property bool settling: false
   readonly property bool animateLevels: active && playing && !Commons.Style.reduceMotion
   readonly property real canvasScale: Math.max(1, width / 1536, height / 864)
+  readonly property real stageEnergy: {
+    if (!animateLevels) return 0
+    if (modeIndex === 2) return orbit.lift
+    var sum = 0
+    var count = Math.min(10, displayLevels.length)
+    for (var i = 0; i < count; i++) sum += displayLevels[i]
+    return count ? Math.max(0, (sum / count - 0.06) / 0.94) : 0
+  }
 
   readonly property string runner: Api.helperPath(Qt.resolvedUrl("../helpers/cava-run"))
 
@@ -257,6 +265,7 @@ Item {
       opacity: root.modeIndex === 1 ? 1 : 0
       visible: root.modeIndex === 1 || opacity > 0.01
       levels: visible ? root.displayLevels : []
+      peakLevels: visible && root.animateLevels ? root.peakLevels : []
       low: root.playing ? root.gradientColor(0) : root.dimColor
       mid: root.playing ? root.gradientColor((root.barCount - 1) / 2) : root.dimColor
       high: root.playing ? root.gradientColor(root.barCount - 1) : root.dimColor
@@ -268,16 +277,18 @@ Item {
     }
 
     OrbitBands {
+      id: orbit
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      height: renderLayer.centerHeight * 1.38
+      height: renderLayer.centerHeight * 1.74
       opacity: root.modeIndex === 2 ? 1 : 0
       visible: root.modeIndex === 2 || opacity > 0.01
       levels: visible ? root.displayLevels : []
       tones: visible ? root.bandTones(true) : []
       guideColor: root.playing ? root.gradientColor((root.barCount - 1) / 2) : root.dimColor
       playing: root.playing
+      motionEnabled: root.active && !Commons.Style.reduceMotion && root.modeIndex === 2
 
       Behavior on opacity {
         NumberAnimation { duration: Commons.Style.duration(220); easing.type: Easing.OutCubic }

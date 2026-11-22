@@ -217,7 +217,9 @@ printf '%s\n' "$*" >> "$MICRO_SETUP_QA/events"
                 "plugin enable io.github.dankestrick.omapandora",
             ])
             plugin = root / "config/omarchy/plugins/io.github.dankestrick.omapandora"
-            self.assertTrue((plugin / "qml/PlayerSettings.qml").exists())
+            manifest = json.loads((plugin / "manifest.json").read_text())
+            ui = Path(manifest["entryPoints"]["panel"]).parent
+            self.assertTrue((plugin / ui / "PlayerSettings.qml").exists())
             self.assertTrue((root / "data/applications/io.github.micro23.MicroPandora.desktop").exists())
 
 
