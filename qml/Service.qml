@@ -29,6 +29,16 @@ Item {
   readonly property alias account: accountController
   property bool wanted: false
   property string displayMode: "full" // "full" or "mini"
+  property alias stationSidebarCollapsed: viewPreferences.sidebarCollapsed
+  property alias visualizerMode: viewPreferences.visualizerMode
+
+  PersistentProperties {
+    id: viewPreferences
+    reloadableId: "micro-pandora-view"
+    property bool sidebarCollapsed: false
+    property int visualizerMode: 0
+  }
+
   property string preferredScreenName: ""
   property var pinnedRaw: []
   // Pins are saved only after the pins file was read cleanly or found

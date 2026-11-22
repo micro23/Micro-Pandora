@@ -11,27 +11,27 @@ Micro-Pandora is a Quickshell plugin with three entry points (`manifest.json`):
 ## Bar
 
 - Default section: **left**
-- Icon: the same Nerd Font music note that used to sit by “Now playing”
-- Click toggles the floating player
-- Hover label: **Micro-Pandora**
+- Left-click the music note to open the mini player.
+- Right-click for the full player or middle-click to play and pause.
 
 ## Floating window
 
 Hyprland can float and center a window titled `Micro-Pandora`.
 
-Top header: music note + **Now Playing - (station name)**
+The header holds the sidebar toggle, visualizer picker, mini player button, and shortcuts.
 
 ### Sidebar (left)
 
-- Themed outer border
+- **Search stations** opens a filtered station list.
 - **My list** — pinned stations (Tab group 1)
 - **Your stations** — remaining stations (Tab group 2)
-- Settings
+- **Settings** opens Pandora sign-in and Pithos controls.
+
+Press **Ctrl+B** or click the header’s sidebar icon to give the stage the full window width. Search and Settings move into the header while the sidebar is hidden.
 
 ### Main (right)
 
-Album art, title, artist, album, visualizer (Tab group 3, together with the
-sound bar).
+The stage centers the album cover, track details, and active station. Choose Spectrum for a signal trace and peaks, Mirror for layered waveforms, or Orbit for projected rings. At shorter window sizes the artist and track move beside the cover.
 
 ### Footer
 
@@ -40,5 +40,4 @@ Tab to group 3.
 
 ## Theme
 
-Uses Omarchy `Color` / `Style` (`qs.Commons`). Window fill is the theme
-background at half opacity. Accent color is used for the active Tab frame.
+The artwork colors drive the stage, visualizer, and playback controls. Omarchy supplies the fallback palette and reduced-motion preference.

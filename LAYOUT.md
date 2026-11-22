@@ -19,7 +19,7 @@ Micro-Pandora/
 │   ├── Panel.qml          Full floating player. Manifest panel.
 │   ├── Service.qml        Pithos / MPRIS / pins. Manifest service.
 │   ├── Api.js             Shared helpers. Import as "Api.js" from qml/.
-│   ├── Visualizer.qml     Cava bars.
+│   ├── Visualizer.qml     Cava input and Spectrum, Mirror, and Orbit selection.
 │   ├── TransportButton.qml
 │   ├── PlaybackSlider.qml
 │   └── ArtImage.qml       Album art (local files from Pithos only).

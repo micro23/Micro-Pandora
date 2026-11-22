@@ -220,7 +220,7 @@ BarWidget {
     bar: root.bar
     owner: root
     open: root.popupOpen
-    contentWidth: fittedContentWidth(Style.space(380))
+    contentWidth: fittedContentWidth(Style.space(405))
     contentHeight: fittedContentHeight(contentColumn.implicitHeight, Style.space(560))
 
     // The mini player is a full-screen overlay that forwards bar clicks but
@@ -255,133 +255,110 @@ BarWidget {
     }
 
     readonly property var artPalette: (root.pandora && root.pandora.artPalette) || ({})
-    readonly property color foreground: artPalette.foreground || root.foreground
-    readonly property color muted: artPalette.muted || root.muted
-    readonly property color accent: artPalette.accent || Commons.Color.accent
-    readonly property color accentAlt: artPalette.accentAlt || accent
+    readonly property bool lightTheme: Commons.Color.background.hslLightness > 0.55
+    readonly property color foreground: artPalette.foreground || (lightTheme ? "#f4f4f6" : root.foreground)
+    readonly property color muted: artPalette.muted || Qt.tint(foreground, Qt.rgba(0, 0, 0, 0.27))
+    readonly property color accent: artPalette.accent
+      || (lightTheme ? Qt.tint(Commons.Color.accent, Qt.rgba(1, 1, 1, 0.55)) : Commons.Color.accent)
+    readonly property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
+    readonly property color surface: artPalette.background
+      ? Qt.tint(artPalette.background, Qt.rgba(0, 0, 0, 0.35))
+      : lightTheme ? "#15171d" : Commons.Color.background
+    readonly property bool connected: !!(root.pandora && root.pandora.connected)
+    readonly property bool playing: !!(root.pandora && root.pandora.playing)
 
-    Binding on borderSpec {
-      when: !!popup.artPalette.accent
-      value: {
-        var outline = Border.flat(Util.alpha(popup.accent, 0.68), Style.space(2))
-        outline.gradient = {
-          colors: [Util.alpha(popup.accentAlt, 0.82), Util.alpha(popup.foreground, 0.24),
-            Util.alpha(popup.accent, 0.74)],
-          angle: 38,
-          enabled: true
-        }
-        return outline
-      }
-    }
+    borderSpec: Border.flat(Util.alpha(popup.accentAlt, 0.31), 1)
 
     AlbumBackdrop {
       anchors.fill: contentColumn
-      anchors.margins: -(popup.padding - Style.space(2))
-      visible: !!popup.artPalette.background
-      baseColor: popup.artPalette.background || "transparent"
-      secondaryColor: popup.artPalette.backgroundAlt || baseColor
+      anchors.margins: -(popup.padding - Style.space(1))
+      baseColor: popup.surface
+      secondaryColor: Qt.tint(popup.surface, Util.alpha(popup.artPalette.backgroundAlt || popup.accent, 0.28))
       artSource: root.popupOpen && root.pandora ? root.pandora.artUrl : ""
-      radius: Style.cornerRadius
+      radius: Style.space(7)
       z: -1
     }
 
     Column {
       id: contentColumn
       anchors.fill: parent
-      spacing: Style.space(12)
+      spacing: Style.space(11)
 
-      Row {
+      RowLayout {
         width: parent.width
-        spacing: Style.space(10)
+        spacing: Style.space(5)
+
+        Rectangle {
+          Layout.preferredWidth: Style.space(31)
+          Layout.preferredHeight: Style.space(31)
+          radius: Style.space(8)
+          color: Util.alpha(popup.accentAlt, 0.14)
+          border.color: Util.alpha(popup.accentAlt, 0.28)
+          border.width: 1
+
+          OpticalGlyph {
+            anchors.centerIn: parent
+            width: Style.space(17)
+            height: width
+            text: "󰝚"
+            color: popup.accentAlt
+            fontFamily: Style.font.family
+            fontSize: Style.font.iconLarge
+          }
+        }
 
         Text {
-          id: heroIcon
+          Layout.fillWidth: true
+          Layout.leftMargin: Style.space(3)
           textFormat: Text.PlainText
-          text: "󰝚"
-          color: popup.accentAlt
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.display
-          anchors.verticalCenter: parent.verticalCenter
+          text: "Micro-Pandora"
+          color: popup.foreground
+          font.family: root.displayFamily
+          font.pixelSize: Style.font.title * 1.05
+          font.weight: Font.DemiBold
+          elide: Text.ElideRight
         }
 
-        Column {
-          id: heroLabels
-          width: Math.max(40, parent.width - heroIcon.width - miniClose.width
-            - miniSwitch.width - miniSettings.width - parent.spacing * 4)
-          spacing: Style.space(2)
-          anchors.verticalCenter: parent.verticalCenter
-
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: "Micro-Pandora"
-            color: popup.foreground
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.title
-            font.bold: true
-            elide: Text.ElideRight
-          }
-
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: {
-              if (root.pandora && root.pandora.stationName)
-                return String(root.pandora.stationName).toUpperCase()
-              if (root.pandora && root.pandora.playing) return "PLAYING"
-              return "READY"
-            }
-            color: popup.artPalette.accentAlt || popup.muted
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.caption
-            font.bold: true
-            font.letterSpacing: 1.2
-            elide: Text.ElideRight
-          }
-        }
-
-        Button {
-          id: miniSettings
-          iconText: "󰒓"
-          foreground: popup.foreground
+        TransportButton {
+          glyphText: "󰒓"
+          controlSize: Style.space(27)
+          foreground: popup.muted
           accent: popup.accentAlt
-          anchors.verticalCenter: parent.verticalCenter
           tooltipText: "Pandora settings"
           onClicked: if (root.pandora) root.pandora.openFullPlayer(root.thisScreenName(), "setup")
         }
 
-        Button {
-          id: miniClose
-          iconText: "󰅖"
-          foreground: popup.foreground
-          accent: popup.accent
-          tooltipText: "Close Micro-Pandora"
-          anchors.verticalCenter: parent.verticalCenter
-          onClicked: root.stopAndClose()
+        TransportButton {
+          glyphText: "󰘖"
+          controlSize: Style.space(29)
+          foreground: popup.accentAlt
+          accent: popup.accentAlt
+          bordered: true
+          tooltipText: "Open full player"
+          onClicked: root.openFullPanel()
         }
 
-        ToggleSwitch {
-          id: miniSwitch
-          checked: true
-          foreground: popup.foreground
-          accent: popup.accent
-          anchors.verticalCenter: parent.verticalCenter
-          onToggled: root.openFullPanel()
-
-          PanelToolTip {
-            visible: miniSwitch.containsMouse
-            text: "Open full player"
-            fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-          }
+        TransportButton {
+          glyphText: "󰅖"
+          controlSize: Style.space(27)
+          foreground: popup.muted
+          accent: popup.accentAlt
+          tooltipText: "Close Micro-Pandora"
+          onClicked: root.stopAndClose()
         }
       }
 
-      Column {
+      DeckSurface {
         width: parent.width
-        spacing: Style.space(8)
-        visible: !root.pandora || !root.pandora.connected
+        height: setupPrompt.implicitHeight + Style.space(22)
+        visible: !popup.connected
+        baseColor: popup.surface
+        accent: popup.accentAlt
+        themed: true
 
         Button {
+          id: setupPrompt
+          anchors.centerIn: parent
           text: root.pandora && root.pandora.launching ? "Connecting…" : "Pandora settings"
           iconText: "󰍂"
           foreground: popup.foreground
@@ -396,256 +373,275 @@ BarWidget {
         visible: text !== ""
         textFormat: Text.PlainText
         text: root.pandora ? root.pandora.commandError || root.pandora.statusError : ""
-        font.family: Style.font.family
+        font.family: root.displayFamily
         font.pixelSize: Style.font.body
-        color: popup.foreground
+        color: Commons.Color.urgent
         wrapMode: Text.Wrap
         maximumLineCount: 2
         elide: Text.ElideRight
       }
 
-      Item {
-        id: miniNowPlaying
+      DeckSurface {
         width: parent.width
-        implicitHeight: Math.max(miniArtwork.height, miniMeta.implicitHeight)
-        height: implicitHeight
-        visible: root.pandora && root.pandora.connected
+        height: miniDetails.implicitHeight + Style.space(22)
+        visible: popup.connected
+        baseColor: Qt.tint(popup.surface, Util.alpha(popup.accentAlt, 0.07))
+        accent: popup.accentAlt
+        themed: true
 
-        AlbumFrame {
-          id: miniArtwork
-          width: Style.space(78)
-          height: width
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          radius: Style.cornerRadius
-          color: Style.normalFillFor(popup.foreground, popup.accent)
-          foreground: popup.foreground
-          accent: popup.accent
-          accentAlt: popup.accentAlt
-          tinted: !!popup.artPalette.accentAlt
-          glow: miniArt.hasArtwork
+        RowLayout {
+          id: miniDetails
+          anchors.fill: parent
+          anchors.leftMargin: Style.space(11)
+          anchors.rightMargin: Style.space(11)
+          spacing: Style.space(12)
 
-          ArtImage {
-            id: miniArt
-            anchors.fill: parent
-            anchors.margins: Style.space(3)
-            requestedSource: root.popupOpen && root.pandora ? root.pandora.artUrl : ""
-            sourceSize.width: 156
-            sourceSize.height: 156
-            fillMode: Image.PreserveAspectFit
-            asynchronous: true
-            cache: true
-            fadeIn: true
-            visible: hasArtwork
+          AlbumFrame {
+            Layout.preferredWidth: Style.space(91)
+            Layout.preferredHeight: Style.space(91)
+            radius: Style.space(8)
+            color: popup.surface
+            foreground: popup.foreground
+            accent: popup.accent
+            accentAlt: popup.accentAlt
+            tinted: true
+
+            CoverTransition {
+              id: miniArt
+              anchors.fill: parent
+              anchors.margins: Style.space(3)
+              requestedSource: root.popupOpen && root.pandora ? root.pandora.artUrl : ""
+              decodeSize: 192
+            }
+
+            FallbackCover {
+              anchors.fill: parent
+              anchors.margins: Style.space(3)
+              visible: !miniArt.hasArtwork
+              baseColor: popup.surface
+              accent: popup.accent
+              accentAlt: popup.accentAlt
+            }
           }
 
-          Text {
-            textFormat: Text.PlainText
-            anchors.centerIn: parent
-            visible: !miniArt.hasArtwork
-            text: "󰝚"
-            color: popup.foreground
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.displayLarge
-          }
-        }
+          ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Style.space(2)
 
-        Column {
-          id: miniMeta
-          anchors.left: miniArtwork.right
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          anchors.leftMargin: Style.space(12)
-          spacing: Style.space(4)
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: Style.space(4)
+              visible: root.pandora && root.pandora.stationName !== ""
 
-          Row {
-            width: parent.width
-            spacing: Style.space(4)
+              PlaybackIndicator {
+                Layout.preferredWidth: Style.space(13)
+                Layout.preferredHeight: Style.space(13)
+                active: root.popupOpen && visible
+                playing: popup.playing
+                tone: popup.accentAlt
+              }
+
+              Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: root.pandora ? root.pandora.stationName : ""
+                color: popup.accentAlt
+                font.family: root.displayFamily
+                font.pixelSize: Style.font.caption
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+              }
+            }
 
             Text {
-              width: Math.max(20, parent.width - likeButton.width - parent.spacing)
+              Layout.fillWidth: true
               textFormat: Text.PlainText
               text: root.pandora && root.pandora.title ? root.pandora.title : "Nothing playing"
-              color: root.pandora && root.pandora.title ? popup.foreground : popup.muted
+              color: popup.foreground
               font.family: root.displayFamily
-              font.pixelSize: Style.font.title * 1.12
-              font.weight: Font.DemiBold
+              font.pixelSize: Style.font.title * 1.46
+              font.weight: Font.Bold
+              font.letterSpacing: -Style.space(0.45)
               wrapMode: Text.Wrap
               maximumLineCount: 2
               elide: Text.ElideRight
             }
 
-            Button {
-              id: likeButton
-              anchors.verticalCenter: parent.verticalCenter
-              iconText: root.pandora && root.pandora.loved ? "󰋑" : "󰋕"
-              iconSize: Style.font.body
-              foreground: Commons.Color.urgent
-              accent: Commons.Color.urgent
-              enabled: root.pandora && root.pandora.hasMedia
-              horizontalPadding: Style.space(4)
-              verticalPadding: Style.space(2)
-              tooltipText: root.pandora && root.pandora.loved ? "Loved" : "Love this song"
-              onClicked: if (root.pandora) root.pandora.toggleLove()
+            Text {
+              Layout.fillWidth: true
+              visible: text !== ""
+              textFormat: Text.PlainText
+              text: root.pandora ? root.pandora.artist : ""
+              color: popup.accent
+              font.family: root.displayFamily
+              font.pixelSize: Style.font.body
+              elide: Text.ElideRight
+            }
+
+            Text {
+              Layout.fillWidth: true
+              visible: text !== ""
+              textFormat: Text.PlainText
+              text: root.pandora ? root.pandora.album : ""
+              color: popup.muted
+              font.family: root.displayFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
             }
           }
 
-          Text {
-            width: parent.width
-            visible: root.pandora && root.pandora.artist !== ""
-            textFormat: Text.PlainText
-            text: root.pandora ? root.pandora.artist : ""
-            color: popup.accent
-            font.family: root.displayFamily
-            font.pixelSize: Style.font.body
-            elide: Text.ElideRight
-          }
-
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            visible: root.pandora && (root.pandora.album !== "" || root.pandora.stationName !== "")
-            text: root.pandora
-              ? (root.pandora.album || root.pandora.stationName) : ""
-            color: popup.artPalette.accentAlt || popup.muted
-            font.family: root.displayFamily
-            font.pixelSize: Style.font.bodySmall
-            elide: Text.ElideRight
+          TransportButton {
+            Layout.alignment: Qt.AlignTop
+            Layout.topMargin: Style.space(9)
+            controlSize: Style.space(25)
+            glyphText: root.pandora && root.pandora.loved ? "󰋑" : "󰋕"
+            foreground: root.pandora && root.pandora.loved ? Commons.Color.urgent : popup.muted
+            accent: Commons.Color.urgent
+            enabled: root.pandora && root.pandora.hasMedia
+            tooltipText: root.pandora && root.pandora.loved ? "Loved" : "Love this song"
+            onClicked: if (root.pandora) root.pandora.toggleLove()
           }
         }
       }
 
-      Column {
+      DeckSurface {
         width: parent.width
-        spacing: Style.space(3)
-        visible: root.pandora && root.pandora.connected && root.pandora.lengthSeconds > 0
+        height: miniControls.implicitHeight + Style.space(20)
+        visible: popup.connected
+        baseColor: popup.surface
+        accent: popup.accentAlt
+        themed: true
 
-        PlaybackSlider {
-          width: parent.width
-          bar: root.bar
-          trackColor: popup.artPalette.accent ? Util.alpha(popup.accent, 0.24)
-            : (bar ? Style.selectedFillFor(bar.foreground, Commons.Color.accent) : "#333")
-          fillColor: popup.artPalette.accent || popup.foreground
-          knobColor: fillColor
-          minimum: 0
-          maximum: Math.max(1, root.pandora ? root.pandora.lengthSeconds : 1)
-          sourceValue: root.pandora ? root.pandora.positionSeconds : 0
-          enabled: false
-          step: 5
-        }
-
-        RowLayout {
-          width: parent.width
-          Text {
-            textFormat: Text.PlainText
-            text: Api.millisecondsToClock((root.pandora ? root.pandora.positionSeconds : 0) * 1000)
-            color: popup.muted
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-          Item { Layout.fillWidth: true }
-          Text {
-            textFormat: Text.PlainText
-            text: Api.millisecondsToClock((root.pandora ? root.pandora.lengthSeconds : 0) * 1000)
-            color: popup.muted
-            font.family: root.bar ? root.bar.fontFamily : Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-        }
-      }
-
-      Row {
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: Style.space(5)
-        visible: root.pandora && root.pandora.connected
-
-        TransportButton {
-          glyphText: "󰥊"
-          foreground: popup.foreground
-          accent: popup.accent
-          tooltipText: "Tired of this song"
-          enabled: root.pandora && root.pandora.hasMedia
-          onClicked: if (root.pandora) root.pandora.tired()
-        }
-
-        TransportButton {
-          glyphText: "󰒮"
-          foreground: popup.foreground
-          accent: popup.accent
-          tooltipText: "Previous is not available on Pandora"
-          enabled: false
-          opacity: 0.35
-        }
-
-        TransportButton {
-          glyphText: root.pandora && root.pandora.playing ? "󰏤" : "󰐊"
-          glyphSize: Style.font.iconLarge
-          controlSize: Style.space(38)
-          radius: width / 2
-          foreground: popup.artPalette.accent || popup.foreground
-          accent: popup.accent
-          selected: true
-          tooltipText: root.pandora && root.pandora.playing ? "Pause" : "Play"
-          onClicked: if (root.pandora) root.pandora.togglePlayback()
-        }
-
-        TransportButton {
-          glyphText: "󰒭"
-          foreground: popup.foreground
-          accent: popup.accent
-          tooltipText: "Skip"
-          enabled: root.pandora && root.pandora.canGoNext
-          onClicked: if (root.pandora) root.pandora.next()
-        }
-
-        TransportButton {
-          glyphText: "󰅙"
-          foreground: popup.foreground
-          accent: popup.accent
-          tooltipText: "Ban this song"
-          enabled: root.pandora && root.pandora.hasMedia
-          onClicked: if (root.pandora) root.pandora.ban()
-        }
-      }
-
-      Row {
-        width: parent.width
-        spacing: Style.space(8)
-        visible: root.pandora && root.pandora.connected
-
-        Text {
-          textFormat: Text.PlainText
+        ColumnLayout {
+          id: miniControls
+          anchors.left: parent.left
+          anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          text: root.pandora && root.pandora.volume <= 0.001 ? "󰝟" : "󰕾"
-          color: root.pandora && root.pandora.volume <= 0.001 ? popup.muted : popup.foreground
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.icon
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.toggleMute()
+          anchors.margins: Style.space(11)
+          spacing: Style.space(5)
+
+          ProgressTrack {
+            Layout.fillWidth: true
+            inlineTimes: false
+            visible: root.pandora && root.pandora.lengthSeconds > 0
+            position: root.pandora ? root.pandora.positionSeconds : 0
+            duration: root.pandora ? root.pandora.lengthSeconds : 0
+            foreground: popup.foreground
+            muted: popup.muted
+            accent: popup.accent
+            accentAlt: popup.accentAlt
+          }
+
+          Row {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: Style.space(9)
+
+            TransportButton {
+              anchors.verticalCenter: parent.verticalCenter
+              glyphText: "󰥊"
+              foreground: popup.muted
+              accent: popup.accentAlt
+              tooltipText: "Tired of this song"
+              enabled: root.pandora && root.pandora.hasMedia
+              onClicked: if (root.pandora) root.pandora.tired()
+            }
+
+            TransportButton {
+              anchors.verticalCenter: parent.verticalCenter
+              glyphText: "󰒮"
+              foreground: popup.muted
+              tooltipText: "Previous is not available on Pandora"
+              enabled: false
+              opacity: 0.35
+            }
+
+            TransportButton {
+              anchors.verticalCenter: parent.verticalCenter
+              glyphText: popup.playing ? "󰏤" : "󰐊"
+              glyphSize: Style.font.iconLarge * 1.12
+              controlSize: Style.space(43)
+              foreground: popup.foreground
+              accent: popup.accent
+              accentAlt: popup.accentAlt
+              primary: true
+              tooltipText: popup.playing ? "Pause" : "Play"
+              onClicked: if (root.pandora) root.pandora.togglePlayback()
+            }
+
+            TransportButton {
+              anchors.verticalCenter: parent.verticalCenter
+              glyphText: "󰒭"
+              foreground: popup.foreground
+              accent: popup.accent
+              tooltipText: "Skip"
+              enabled: root.pandora && root.pandora.canGoNext
+              onClicked: if (root.pandora) root.pandora.next()
+            }
+
+            TransportButton {
+              anchors.verticalCenter: parent.verticalCenter
+              glyphText: "󰅙"
+              foreground: popup.muted
+              accent: popup.accentAlt
+              tooltipText: "Ban this song"
+              enabled: root.pandora && root.pandora.hasMedia
+              onClicked: if (root.pandora) root.pandora.ban()
+            }
+          }
+
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: Util.alpha(popup.foreground, 0.10)
+          }
+
+          RowLayout {
+            Layout.fillWidth: true
+            spacing: Style.space(6)
+
+            TransportButton {
+              glyphText: miniVolume.value <= 0.001 ? "󰝟" : "󰕾"
+              controlSize: Style.space(24)
+              glyphSize: Style.font.icon
+              foreground: popup.accentAlt
+              accent: popup.accentAlt
+              enabled: popup.connected
+              tooltipText: miniVolume.value <= 0.001 ? "Unmute" : "Mute"
+              onClicked: root.toggleMute()
+            }
+
+            PlaybackSlider {
+              id: miniVolume
+              Layout.fillWidth: true
+              Accessible.name: "Volume"
+              bar: root.bar
+              trackHeight: Style.space(4)
+              knobSize: Style.space(12)
+              trackColor: Util.alpha(popup.foreground, 0.16)
+              fillColor: popup.accentAlt
+              knobColor: fillColor
+              minimum: 0
+              maximum: 1
+              step: 0.05
+              sourceValue: root.pandora ? root.pandora.volume : 0
+              enabled: root.pandora && root.pandora.volumeSupported
+              liveCommit: true
+              onCommitted: function(value) { root.setVolumeValue(value) }
+            }
+
+            Text {
+              Layout.preferredWidth: Style.space(33)
+              textFormat: Text.PlainText
+              text: Math.round(Api.clampUnit(miniVolume.value) * 100) + "%"
+              color: popup.muted
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+              horizontalAlignment: Text.AlignRight
+            }
           }
         }
-
-        PlaybackSlider {
-          width: parent.width - Style.space(34)
-          Accessible.name: "Volume"
-          anchors.verticalCenter: parent.verticalCenter
-          bar: root.bar
-          trackColor: popup.artPalette.accentAlt ? Util.alpha(popup.accentAlt, 0.24)
-            : (bar ? Style.selectedFillFor(bar.foreground, Commons.Color.accent) : "#333")
-          fillColor: popup.artPalette.accentAlt || popup.foreground
-          knobColor: fillColor
-          minimum: 0
-          maximum: 1
-          step: 0.05
-          sourceValue: root.pandora ? root.pandora.volume : 0
-          enabled: root.pandora && root.pandora.volumeSupported
-          liveCommit: true
-          onCommitted: function(value) { root.setVolumeValue(value) }
-        }
       }
-
     }
+
   }
 }

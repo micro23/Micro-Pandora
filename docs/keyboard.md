@@ -4,6 +4,7 @@
 
 | Shortcut | Action |
 | --- | --- |
+| `Ctrl+B` | Hide or show the station sidebar |
 | `Tab` / `F6` | Cycle **My list**, **Your stations**, then the **big player** |
 | `↑` / `↓` | Move highlight inside the current Tab group (wraps) |
 | `Enter` | Play the highlighted station (or play/pause on the big player) |

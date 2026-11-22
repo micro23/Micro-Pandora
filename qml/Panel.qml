@@ -22,6 +22,9 @@ Item {
   property int pinCursor: -1
   property string browseTarget: "nowplaying"
   property bool shortcutHelpOpen: false
+  property bool localSidebarCollapsed: false
+  readonly property bool sidebarCollapsed: service && service.stationSidebarCollapsed !== undefined
+    ? service.stationSidebarCollapsed : localSidebarCollapsed
   // True while the window is being moved to another monitor. Quickshell
   // hides and re-shows the window for that; the hide is not a close.
   property bool movingScreen: false
@@ -29,19 +32,29 @@ Item {
   readonly property string pluginId: manifest && manifest.id
     ? String(manifest.id) : "io.github.dankestrick.omapandora"
   readonly property var artPalette: (service && service.artPalette) || ({})
-  readonly property color foreground: artPalette.foreground || Commons.Color.foreground
-  readonly property color background: artPalette.background || Util.alpha(Commons.Color.background, 0.95)
-  readonly property color alternateSurface: artPalette.backgroundAlt
-    ? Qt.darker(artPalette.backgroundAlt, 1.30) : background
-  readonly property color accent: artPalette.accent || Commons.Color.accent
-  readonly property color accentAlt: artPalette.accentAlt || accent
-  readonly property color muted: artPalette.muted || Commons.Color.muted
+  readonly property bool lightTheme: Commons.Color.background.hslLightness > 0.55
+  property color foreground: artPalette.foreground
+    || (lightTheme ? "#f4f4f6" : Commons.Color.foreground)
+  property color background: artPalette.background
+    || (lightTheme ? Qt.tint("#15171d", Util.alpha(Commons.Color.background, 0.08)) : Commons.Color.background)
+  readonly property color alternateSurface: artPalette.backgroundAlt || background
+  property color accent: artPalette.accent
+    || (lightTheme ? Qt.tint(Commons.Color.accent, Qt.rgba(1, 1, 1, 0.55)) : Commons.Color.accent)
+  property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
+  property color muted: artPalette.muted
+    || (lightTheme ? "#b1b5c2" : Qt.tint(foreground, Util.alpha(background, 0.30)))
+  readonly property color surface: Qt.tint(background, Qt.rgba(0, 0, 0, 0.35))
+
+  Behavior on foreground { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on background { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on accent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on accentAlt { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on muted { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   readonly property string fontFamily: Style.font.family
   readonly property string displayFamily: "Adwaita Sans"
   readonly property bool connected: service && service.connected
   readonly property var account: service && service.account ? service.account : null
   readonly property string playbackError: service ? service.commandError || service.statusError : ""
-  readonly property bool miniMode: !!(service && service.displayMode === "mini")
   readonly property var filteredStations: {
     var all = service && service.stations instanceof Array ? service.stations : []
     var needle = String(stationFilter || "").trim().toLowerCase()
@@ -72,7 +85,8 @@ Item {
     applyPreferredScreen()
     var options = Api.parseStatus(payloadJson)
     opened = true
-    browseTarget = "nowplaying"
+    browseTarget = sidebarCollapsed ? "player" : "nowplaying"
+    if (service && service.visualizerMode !== undefined) visualizer.selectMode(service.visualizerMode)
     currentTab = options && options.page === "setup" ? "setup" : "nowplaying"
     maybeOpenSetup()
     pinCursor = pinnedStations.length ? 0 : -1
@@ -107,12 +121,29 @@ Item {
   function pageTitle() {
     if (currentTab === "stations") return "Stations"
     if (currentTab === "setup") return "Settings"
-    var station = service && service.stationName ? String(service.stationName) : ""
-    if (station) return "Now Playing - " + station
-    return "Now Playing"
+    return "Now playing"
   }
 
   function chooseTab(id) { currentTab = id }
+
+  function toggleSidebar() {
+    var next = !sidebarCollapsed
+    if (service && service.stationSidebarCollapsed !== undefined)
+      service.stationSidebarCollapsed = next
+    else localSidebarCollapsed = next
+    if (next && currentTab !== "stations") browseTarget = "player"
+    if (!next && currentTab === "nowplaying") browseTarget = "nowplaying"
+  }
+
+  function selectVisualizer(index) {
+    visualizer.selectMode(index)
+    if (service && service.visualizerMode !== undefined)
+      service.visualizerMode = visualizer.modeIndex
+  }
+
+  function nextVisualizer() {
+    selectVisualizer((visualizer.modeIndex + 1) % visualizer.modeNames.length)
+  }
 
   function maybeOpenSetup() {
     if (!opened || connected || currentTab !== "nowplaying" || !account || !account.checked) return
@@ -237,15 +268,19 @@ Item {
 
   function closeSearch() {
     currentTab = "nowplaying"
+    if (sidebarCollapsed) browseTarget = "player"
     stationSearch.focus = false
     Qt.callLater(function() { keyRoot.forceActiveFocus() })
   }
 
-  function frameSpec(active) {
-    return Border.controlSpec(active ? "selected" : "normal", foreground, accent)
-  }
-
   function cycleRegion() {
+    if (sidebarCollapsed) {
+      if (currentTab === "stations") closeSearch()
+      else if (currentTab === "setup") chooseTab("nowplaying")
+      browseTarget = "player"
+      keyRoot.forceActiveFocus()
+      return
+    }
     var order = ["nowplaying", "stations", "player"]
     var at = order.indexOf(browseTarget)
     if (at < 0) at = 0
@@ -330,28 +365,30 @@ Item {
     id: window
     visible: root.opened
     title: "Micro-Pandora"
-    color: root.background
+    color: root.surface
     implicitWidth: 1440
     implicitHeight: 900
-    minimumSize: Qt.size(1100, 700)
+    minimumSize: Qt.size(850, 600)
 
     onVisibleChanged: {
       if (!visible && root.opened && !root.closingFromHost && !root.movingScreen)
         root.requestClose()
     }
 
-    AlbumBackdrop {
-      anchors.fill: parent
-      visible: !!root.artPalette.backgroundAlt
-      baseColor: root.background
-      secondaryColor: root.artPalette.backgroundAlt || root.background
-      artSource: root.opened && root.service ? root.service.artUrl : ""
-    }
-
     FocusScope {
       id: keyRoot
       anchors.fill: parent
       focus: true
+      LayoutMirroring.enabled: Commons.I18n.rightToLeft
+      LayoutMirroring.childrenInherit: true
+
+      AlbumBackdrop {
+        anchors.fill: parent
+        visible: root.opened
+        baseColor: root.surface
+        secondaryColor: Qt.tint(root.surface, Util.alpha(root.alternateSurface, 0.52))
+        artSource: root.opened && root.service ? root.service.artUrl : ""
+      }
 
       Shortcut {
         sequence: "V"
@@ -362,8 +399,16 @@ Item {
           && !(stationSearch.visible && stationSearch.activeFocus)
         onActivated: {
           root.chooseTab("nowplaying")
-          visualizer.nextMode()
+          root.nextVisualizer()
         }
+      }
+
+      Shortcut {
+        sequence: "Ctrl+B"
+        context: Qt.WindowShortcut
+        autoRepeat: false
+        enabled: root.opened && !root.shortcutHelpOpen
+        onActivated: root.toggleSidebar()
       }
 
       Keys.priority: Keys.BeforeItem
@@ -439,301 +484,353 @@ Item {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: parent.top
-          anchors.bottom: footerSeparator.top
-          anchors.bottomMargin: Style.space(10)
-          spacing: Style.space(10)
+          anchors.bottom: playerFooter.top
+          anchors.bottomMargin: Style.space(12)
+          readonly property real sidebarWidth: Math.min(Style.space(250),
+            Math.max(Style.space(194), width * 0.205))
 
-          DeckSurface {
-            id: sidebar
-            width: Math.min(Style.space(266), Math.max(Style.space(214), workspace.width * 0.23))
+          Item {
+            id: sidebarSlot
+            objectName: "stationSidebar"
+            width: root.sidebarCollapsed ? 0 : workspace.sidebarWidth + Style.space(12)
             height: parent.height
-            baseColor: root.background
-            accent: root.accentAlt
-            themed: !!root.artPalette.accent
+            clip: true
+            Behavior on width {
+              NumberAnimation { duration: Style.duration(220); easing.type: Easing.OutCubic }
+            }
 
-            ColumnLayout {
-              anchors.fill: parent
-              anchors.margins: Style.space(10)
-              spacing: Style.space(8)
+            DeckSurface {
+              id: sidebar
+              width: workspace.sidebarWidth
+              height: parent.height
+              visible: sidebarSlot.width > 0
+              enabled: !root.sidebarCollapsed
+              baseColor: root.surface
+              accent: root.accentAlt
+              themed: true
+              radius: Style.space(16)
 
-              Row {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Style.space(38)
-                spacing: Style.space(9)
+              ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: Style.space(12)
+                spacing: Style.space(10)
 
-                Rectangle {
-                  width: Style.space(34)
-                  height: width
-                  anchors.verticalCenter: parent.verticalCenter
-                  radius: Style.cornerRadius
-                  color: Util.alpha(root.accentAlt, 0.17)
+                RowLayout {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: Style.space(41)
+                  spacing: Style.space(9)
 
-                  OpticalGlyph {
-                    anchors.centerIn: parent
-                    width: Style.space(19)
-                    height: width
-                    text: "󰝚"
-                    color: root.accentAlt
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.iconLarge
+                  Rectangle {
+                    Layout.preferredWidth: Style.space(33)
+                    Layout.preferredHeight: Style.space(33)
+                    radius: Style.space(9)
+                    color: Util.alpha(root.accentAlt, 0.15)
+                    border.color: Util.alpha(root.accentAlt, 0.34)
+                    border.width: 1
+
+                    OpticalGlyph {
+                      anchors.centerIn: parent
+                      width: Style.space(18)
+                      height: width
+                      text: "󰝚"
+                      color: root.accentAlt
+                      fontFamily: root.fontFamily
+                      fontSize: Style.font.iconLarge
+                    }
                   }
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  textFormat: Text.PlainText
-                  text: "Micro-Pandora"
-                  color: root.foreground
-                  font.family: root.displayFamily
-                  font.pixelSize: Style.font.title * 1.18
-                  font.weight: Font.DemiBold
-                }
-              }
-
-              DeckSurface {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Style.space(37)
-                  + Math.min(pinnedContents.implicitHeight, Math.max(Style.space(32), sidebar.height * 0.22))
-                baseColor: root.alternateSurface
-                accent: root.accentAlt
-                themed: sidebar.themed
-                emphasized: root.browseTarget === "nowplaying"
-
-                ColumnLayout {
-                  anchors.fill: parent
-                  anchors.margins: Style.space(7)
-                  spacing: Style.space(6)
 
                   Text {
-                    textFormat: Text.PlainText
-                    text: "My list"
-                    color: root.accentAlt
-                    leftPadding: Style.space(5)
-                    font.family: root.displayFamily
-                    font.pixelSize: Style.font.subtitle
-                    font.weight: Font.DemiBold
-                  }
-
-                  Flickable {
-                    id: pinnedFlick
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    contentWidth: width
-                    contentHeight: pinnedContents.implicitHeight
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    textFormat: Text.PlainText
+                    text: "Micro-Pandora"
+                    color: root.foreground
+                    font.family: root.displayFamily
+                    font.pixelSize: Style.font.title * 1.19
+                    font.weight: Font.Bold
+                    elide: Text.ElideRight
+                  }
+                }
 
-                    Column {
-                      id: pinnedContents
-                      width: pinnedFlick.width - Style.space(6)
-                      spacing: Style.space(2)
+                StationTile {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: Style.space(37)
+                  text: "Search stations"
+                  iconText: "󰍉"
+                  foreground: root.muted
+                  accent: root.accentAlt
+                  selected: root.currentTab === "stations"
+                  bordered: true
+                  onClicked: root.focusSearch()
+                }
 
-                      Text {
-                        textFormat: Text.PlainText
-                        width: parent.width
-                        leftPadding: Style.space(5)
-                        readonly property string pinsError: root.service ? root.service.pinsError : ""
-                        visible: root.pinnedStations.length === 0 || pinsError !== ""
-                        text: pinsError !== "" ? pinsError : "Pin a station with C"
-                        color: pinsError !== "" ? Commons.Color.urgent : root.muted
-                        font.family: root.displayFamily
-                        font.pixelSize: Style.font.body
-                        wrapMode: Text.WordWrap
-                      }
+                DeckSurface {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: Style.space(37)
+                    + Math.min(pinnedContents.implicitHeight, Math.max(Style.space(32), sidebar.height * 0.22))
+                  baseColor: Qt.tint(root.surface, Util.alpha(root.accentAlt, 0.04))
+                  accent: root.accentAlt
+                  themed: false
+                  emphasized: root.browseTarget === "nowplaying" && root.pinCursor >= 0
 
-                      Repeater {
-                        id: pinnedRepeater
-                        model: root.pinnedStations.length
+                  ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Style.space(7)
+                    spacing: Style.space(6)
 
-                        StationTile {
-                          required property int index
-                          readonly property var pin: root.pinnedStations[index]
-                          width: pinnedContents.width
-                          text: pin && pin.name ? pin.name : "Station"
-                          iconText: currentStation && root.service.playing ? "󰎆" : "󰐃"
-                          fontFamily: root.fontFamily
-                          foreground: currentStation ? root.accentAlt : root.foreground
-                          accent: root.accentAlt
-                          selected: root.isPinnedCursor(index)
-                          currentStation: !!(pin && root.service && pin.path === root.service.stationPath)
-                          onClicked: {
-                            root.browseTarget = "nowplaying"
-                            root.pinCursor = index
-                            root.chooseTab("nowplaying")
-                            if (root.service && pin) root.service.activateStation(pin.path)
+                    Text {
+                      textFormat: Text.PlainText
+                      text: "My list"
+                      color: root.accentAlt
+                      leftPadding: Style.space(5)
+                      font.family: root.displayFamily
+                      font.pixelSize: Style.font.subtitle
+                      font.weight: Font.DemiBold
+                    }
+
+                    Flickable {
+                      id: pinnedFlick
+                      Layout.fillWidth: true
+                      Layout.fillHeight: true
+                      contentWidth: width
+                      contentHeight: pinnedContents.implicitHeight
+                      clip: true
+                      boundsBehavior: Flickable.StopAtBounds
+                      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                      Column {
+                        id: pinnedContents
+                        width: pinnedFlick.width - Style.space(6)
+                        spacing: Style.space(2)
+
+                        Text {
+                          textFormat: Text.PlainText
+                          width: parent.width
+                          leftPadding: Style.space(5)
+                          readonly property string pinsError: root.service ? root.service.pinsError : ""
+                          visible: root.pinnedStations.length === 0 || pinsError !== ""
+                          text: pinsError !== "" ? pinsError : "Pin a station with C"
+                          color: pinsError !== "" ? Commons.Color.urgent : root.muted
+                          font.family: root.displayFamily
+                          font.pixelSize: Style.font.body
+                          wrapMode: Text.WordWrap
+                        }
+
+                        Repeater {
+                          id: pinnedRepeater
+                          model: root.pinnedStations.length
+
+                          StationTile {
+                            required property int index
+                            readonly property var pin: root.pinnedStations[index]
+                            width: pinnedContents.width
+                            text: pin && pin.name ? pin.name : "Station"
+                            iconText: "󰐃"
+                            playingStation: currentStation && root.service.playing
+                            foreground: currentStation ? root.accentAlt : root.foreground
+                            accent: root.accentAlt
+                            selected: root.isPinnedCursor(index)
+                            currentStation: !!(pin && root.service && pin.path === root.service.stationPath)
+                            onClicked: {
+                              root.browseTarget = "nowplaying"
+                              root.pinCursor = index
+                              root.chooseTab("nowplaying")
+                              if (root.service && pin) root.service.activateStation(pin.path)
+                            }
                           }
                         }
                       }
                     }
                   }
                 }
-              }
 
-              DeckSurface {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: Style.space(94)
-                baseColor: root.background
-                accent: root.accent
-                themed: sidebar.themed
-                emphasized: root.browseTarget === "stations"
+                DeckSurface {
+                  Layout.fillWidth: true
+                  Layout.fillHeight: true
+                  Layout.minimumHeight: Style.space(94)
+                  baseColor: Qt.tint(root.surface, Util.alpha(root.foreground, 0.025))
+                  accent: root.accent
+                  themed: false
+                  emphasized: root.browseTarget === "stations"
 
-                ColumnLayout {
-                  anchors.fill: parent
-                  anchors.margins: Style.space(7)
-                  spacing: Style.space(5)
+                  ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Style.space(7)
+                    spacing: Style.space(5)
 
-                  Text {
-                    textFormat: Text.PlainText
-                    text: "Your stations"
-                    color: root.accent
-                    leftPadding: Style.space(5)
-                    font.family: root.displayFamily
-                    font.pixelSize: Style.font.subtitle
-                    font.weight: Font.DemiBold
-                  }
+                    Text {
+                      textFormat: Text.PlainText
+                      text: "Your stations"
+                      color: root.accent
+                      leftPadding: Style.space(5)
+                      font.family: root.displayFamily
+                      font.pixelSize: Style.font.subtitle
+                      font.weight: Font.DemiBold
+                    }
 
-                  ListView {
-                    id: stationFlick
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    visible: root.connected
-                    boundsBehavior: Flickable.StopAtBounds
-                    focus: false
-                    Keys.enabled: false
-                    spacing: Style.space(2)
-                    reuseItems: true
-                    model: root.unpinnedStations
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ListView {
+                      id: stationFlick
+                      Layout.fillWidth: true
+                      Layout.fillHeight: true
+                      clip: true
+                      visible: root.connected
+                      boundsBehavior: Flickable.StopAtBounds
+                      focus: false
+                      Keys.enabled: false
+                      spacing: Style.space(2)
+                      reuseItems: true
+                      model: root.unpinnedStations
+                      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                    delegate: StationTile {
-                      required property int index
-                      required property var modelData
-                      width: stationFlick.width - Style.space(6)
-                      text: modelData.name || "Station"
-                      iconText: currentStation && root.service.playing ? "󰎆" : "󰐹"
-                      foreground: currentStation ? root.accent : root.foreground
-                      accent: root.accent
-                      selected: root.isCursor(modelData.path)
-                      currentStation: !!(root.service && modelData.path === root.service.stationPath)
-                      onClicked: {
-                        root.chooseTab("nowplaying")
-                        root.stationCursor = index
-                        root.browseTarget = "stations"
-                        root.playStation(modelData.path)
+                      delegate: StationTile {
+                        required property int index
+                        required property var modelData
+                        width: stationFlick.width - Style.space(6)
+                        text: modelData.name || "Station"
+                        iconText: "󰐹"
+                        playingStation: currentStation && root.service.playing
+                        foreground: currentStation ? root.accent : root.foreground
+                        accent: root.accent
+                        selected: root.isCursor(modelData.path)
+                        currentStation: !!(root.service && modelData.path === root.service.stationPath)
+                        onClicked: {
+                          root.chooseTab("nowplaying")
+                          root.stationCursor = index
+                          root.browseTarget = "stations"
+                          root.playStation(modelData.path)
+                        }
                       }
                     }
                   }
                 }
-              }
 
-              StationTile {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Style.space(32)
-                text: "Settings"
-                iconText: "󰒓"
-                foreground: root.accentAlt
-                accent: root.accentAlt
-                selected: root.currentTab === "setup"
-                onClicked: root.chooseTab("setup")
+                StationTile {
+                  Layout.fillWidth: true
+                  Layout.preferredHeight: Style.space(32)
+                  text: "Settings"
+                  iconText: "󰒓"
+                  foreground: root.accentAlt
+                  accent: root.accentAlt
+                  selected: root.currentTab === "setup"
+                  onClicked: root.chooseTab("setup")
+                }
               }
             }
           }
 
           Item {
-            width: parent.width - sidebar.width - parent.spacing
+            width: parent.width - sidebarSlot.width
             height: parent.height
 
-            Row {
+            RowLayout {
               id: pageHeader
               anchors.left: parent.left
               anchors.right: parent.right
               anchors.top: parent.top
-              height: closeButton.implicitHeight
-              spacing: Style.space(5)
+              height: Style.space(41)
+              spacing: Style.space(7)
 
-              Row {
-                width: Math.max(80, parent.width - headerMiniSwitch.width
-                  - helpButton.width - refreshButton.width - closeButton.width
-                  - (visualizerButton.visible ? visualizerButton.width + parent.spacing : 0)
-                  - parent.spacing * 4)
-                spacing: Style.space(8)
-                anchors.verticalCenter: parent.verticalCenter
-
-                OpticalGlyph {
-                  width: Style.space(22)
-                  height: Style.space(22)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "󰝚"
-                  color: root.accent
-                  fontFamily: root.fontFamily
-                  fontSize: Style.font.title
-                }
-
-                Text {
-                  textFormat: Text.PlainText
-                  width: Math.max(40, parent.width - Style.space(30))
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: root.pageTitle()
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.title
-                  font.bold: true
-                  elide: Text.ElideRight
-                }
-              }
-
-              ToggleSwitch {
-                id: headerMiniSwitch
-                checked: root.miniMode
-                foreground: root.foreground
-                accent: root.accent
-                anchors.verticalCenter: parent.verticalCenter
-                onToggled: {
-                  if (!root.service) return
-                  root.service.enterMini(root.service.preferredScreenName)
-                }
-
-                PanelToolTip {
-                  visible: headerMiniSwitch.containsMouse
-                  text: "Show mini player"
-                  fontFamily: root.fontFamily
-                }
-              }
-
-              Button {
-                id: visualizerButton
-                visible: root.currentTab === "nowplaying"
-                text: visualizer.modeName
-                foreground: root.accent
+              TransportButton {
+                id: sidebarToggle
+                objectName: "stationSidebarToggle"
+                controlSize: Style.space(36)
+                radius: Style.space(9)
+                foreground: root.accentAlt
                 accent: root.accentAlt
-                tooltipText: "Change visualizer · V"
-                onClicked: visualizer.nextMode()
+                bordered: true
+                tooltipText: root.sidebarCollapsed ? "Show stations · Ctrl+B" : "Hide stations · Ctrl+B"
+                Accessible.checkable: true
+                Accessible.checked: !root.sidebarCollapsed
+                onClicked: root.toggleSidebar()
+
+                Rectangle {
+                  width: Style.space(16)
+                  height: Style.space(13)
+                  anchors.centerIn: parent
+                  color: "transparent"
+                  radius: Style.space(2)
+                  border.width: 1
+                  border.color: root.accentAlt
+
+                  Rectangle {
+                    width: Style.space(5)
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 1
+                    color: Util.alpha(root.accentAlt, root.sidebarCollapsed ? 0.14 : 0.59)
+                    Behavior on color { ColorAnimation { duration: Style.duration(150) } }
+                  }
+                }
               }
 
-              Button {
-                id: helpButton
-                text: "?"
+              Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: root.pageTitle()
+                color: root.foreground
+                font.family: root.displayFamily
+                font.pixelSize: Style.font.title * 1.18
+                font.weight: Font.DemiBold
+                leftPadding: Style.space(4)
+                elide: Text.ElideRight
+              }
+
+              ModePicker {
+                visible: root.currentTab === "nowplaying"
+                modes: visualizer.modeNames
+                current: visualizer.modeIndex
                 foreground: root.foreground
-                fontSize: Style.font.subtitle
+                muted: root.muted
+                accent: root.accent
+                onChosen: function(mode) { root.selectVisualizer(mode) }
+              }
+
+              TransportButton {
+                glyphText: "󰍉"
+                visible: root.sidebarCollapsed
+                foreground: root.muted
+                accent: root.accentAlt
+                tooltipText: "Search stations · Ctrl+F"
+                onClicked: root.focusSearch()
+              }
+
+              TransportButton {
+                glyphText: "󰒓"
+                visible: root.sidebarCollapsed
+                foreground: root.muted
+                accent: root.accentAlt
+                tooltipText: "Pandora settings"
+                onClicked: root.chooseTab(root.currentTab === "setup" ? "nowplaying" : "setup")
+              }
+
+              TransportButton {
+                glyphText: "󰖲"
+                foreground: root.muted
+                accent: root.accentAlt
+                tooltipText: "Show mini player"
+                onClicked: if (root.service) root.service.enterMini(root.service.preferredScreenName)
+              }
+
+              TransportButton {
+                glyphText: "󰋗"
+                foreground: root.muted
+                accent: root.accentAlt
                 tooltipText: "Keyboard shortcuts · Ctrl+/"
                 onClicked: root.shortcutHelpOpen = !root.shortcutHelpOpen
               }
 
-              Button {
-                id: refreshButton
-                iconText: "󰑐"
-                foreground: root.foreground
+              TransportButton {
+                glyphText: "󰑐"
+                foreground: root.muted
+                accent: root.accentAlt
                 tooltipText: "Refresh"
                 onClicked: if (root.service) root.service.refresh()
               }
 
-              Button {
-                id: closeButton
-                iconText: "󰅖"
+              TransportButton {
+                glyphText: "󰅖"
                 foreground: root.foreground
+                accent: root.accentAlt
                 tooltipText: "Close Micro-Pandora"
                 onClicked: root.stopAndClose()
               }
@@ -746,9 +843,18 @@ Item {
               anchors.right: parent.right
               anchors.top: pageHeader.bottom
               anchors.topMargin: visible ? Style.space(8) : 0
-              height: visible ? Style.space(38) : 0
+              height: visible ? Style.space(44) : 0
               foreground: root.foreground
+              accent: root.accentAlt
+              font.family: root.displayFamily
+              font.pixelSize: Style.font.subtitle
               placeholderText: "Search stations"
+              Accessible.name: "Search stations"
+              background: BorderSurface {
+                radius: Style.space(10)
+                color: Qt.tint(root.surface, Util.alpha(root.accentAlt, 0.065))
+                borderSpec: Border.flat(Util.alpha(root.accentAlt, stationSearch.activeFocus ? 0.52 : 0.22), 1)
+              }
               text: root.stationFilter
               onTextEdited: root.stationFilter = text
             }
@@ -761,21 +867,35 @@ Item {
               anchors.bottom: parent.bottom
 
               BorderSurface {
+                id: stage
                 anchors.fill: parent
                 visible: root.currentTab === "nowplaying"
-                color: "transparent"
-                radius: Style.cornerRadius
-                borderSpec: root.frameSpec(root.browseTarget === "player")
+                color: root.surface
+                radius: Style.space(18)
+                borderSpec: Border.flat(Util.alpha(root.accentAlt,
+                  root.sidebarCollapsed || root.browseTarget !== "player" ? 0.21 : 0.43), 1)
+
+                StageAtmosphere {
+                  anchors.fill: parent
+                  anchors.margins: Style.space(2)
+                  baseColor: root.background
+                  primary: root.accent
+                  secondary: root.accentAlt
+                  horizon: 0.68
+                  cornerRadius: Style.space(16)
+                  opacity: 0.95
+                }
 
                 Item {
                   id: heroStage
-                  readonly property bool compact: height < Style.space(390)
+                  readonly property bool compact: height < Style.space(380)
                   anchors.left: parent.left
                   anchors.right: parent.right
                   anchors.top: parent.top
                   anchors.bottom: parent.bottom
-                  anchors.margins: Style.space(16)
-                  anchors.bottomMargin: visualizer.centerHeight + Style.space(28)
+                  anchors.margins: Style.space(28)
+                  anchors.topMargin: Style.space(30)
+                  anchors.bottomMargin: visualizer.centerHeight + Style.space(26)
                   z: 1
 
                   GridLayout {
@@ -785,52 +905,42 @@ Item {
                     width: heroStage.compact
                       ? Math.min(parent.width, coverSize + columnSpacing + textWidth)
                       : parent.width
-                    rowSpacing: Style.space(16)
-                    columnSpacing: Style.space(20)
+                    rowSpacing: Style.space(21)
+                    columnSpacing: Style.space(31)
                     readonly property real coverSize: heroStage.compact
-                      ? Math.max(1, Math.min(Style.space(220), heroStage.height, heroStage.width * 0.34))
-                      : Math.min(Style.space(360), heroStage.width,
+                      ? Math.max(1, Math.min(Style.space(244), heroStage.height, heroStage.width * 0.36))
+                      : Math.min(Style.space(350), heroStage.width,
                           Math.max(1, heroStage.height - metadataReserve))
-                    readonly property real textWidth: Math.min(Style.space(470),
-                      Math.max(Style.space(260), heroTitleMetrics.advanceWidth))
-                    readonly property real metadataReserve: Style.space(157)
-                      + (heroTitleMetrics.advanceWidth > Math.min(heroStage.width, Style.space(680))
-                        ? heroTitle.font.pixelSize * 1.25 : 0)
+                    readonly property real textWidth: Math.min(Style.space(465), heroStage.width * 0.56)
+                    readonly property real metadataReserve: nowPlayingMeta.implicitHeight + rowSpacing
 
                     AlbumFrame {
                       Layout.preferredWidth: nowPlayingHero.coverSize
                       Layout.preferredHeight: nowPlayingHero.coverSize
                       Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                      radius: Style.cornerRadius
-                      color: Style.selectedFillFor(root.foreground, root.accent)
+                      radius: Style.space(13)
+                      color: Qt.darker(root.background, 1.32)
                       foreground: root.foreground
                       accent: root.accent
                       accentAlt: root.accentAlt
-                      tinted: !!root.artPalette.accentAlt
+                      tinted: true
                       glow: heroArt.hasArtwork
 
-                      ArtImage {
+                      CoverTransition {
                         id: heroArt
                         anchors.fill: parent
                         anchors.margins: Style.space(4)
                         requestedSource: root.opened && root.service ? root.service.artUrl : ""
-                        sourceSize.width: 720
-                        sourceSize.height: 720
-                        fillMode: Image.PreserveAspectFit
-                        asynchronous: true
-                        cache: true
-                        fadeIn: true
-                        visible: hasArtwork
+                        decodeSize: 720
                       }
 
-                      Text {
-                        textFormat: Text.PlainText
-                        anchors.centerIn: parent
+                      FallbackCover {
+                        anchors.fill: parent
+                        anchors.margins: Style.space(4)
                         visible: !heroArt.hasArtwork
-                        text: "󰎈"
-                        color: root.muted
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.displayLarge
+                        baseColor: root.background
+                        accent: root.accent
+                        accentAlt: root.accentAlt
                       }
                     }
 
@@ -840,13 +950,7 @@ Item {
                         ? nowPlayingHero.width - nowPlayingHero.coverSize - nowPlayingHero.columnSpacing
                         : Math.min(nowPlayingHero.width, Style.space(680))
                       Layout.alignment: heroStage.compact ? Qt.AlignLeft | Qt.AlignVCenter : Qt.AlignHCenter
-                      spacing: Style.space(4)
-
-                      TextMetrics {
-                        id: heroTitleMetrics
-                        text: heroTitle.text
-                        font: heroTitle.font
-                      }
+                      spacing: Style.space(5)
 
                       Text {
                         id: heroTitle
@@ -856,9 +960,11 @@ Item {
                           ? root.service.title : "Nothing playing"
                         color: root.foreground
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 1.87,
-                          Math.max(Style.font.displayLarge * 1.23, heroStage.height * 0.109)))
-                        font.weight: Font.ExtraBold
+                        font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 2.21,
+                          Math.max(Style.font.displayLarge * 1.20, heroStage.height * 0.119),
+                          heroStage.compact ? nowPlayingMeta.width * 0.20 : heroStage.width * 0.125))
+                        font.weight: Font.Bold
+                        font.letterSpacing: -Style.space(1.7)
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         wrapMode: Text.Wrap
                         maximumLineCount: heroStage.height < Style.space(175) ? 1 : 2
@@ -866,8 +972,9 @@ Item {
                       }
 
                       Button {
-                        anchors.horizontalCenter: heroStage.compact ? undefined : parent.horizontalCenter
-                        anchors.left: heroStage.compact ? parent.left : undefined
+                        x: heroStage.compact
+                          ? (LayoutMirroring.enabled ? nowPlayingMeta.width - width : 0)
+                          : (nowPlayingMeta.width - width) / 2
                         visible: !root.connected && !!root.service
                         enabled: root.service && !root.service.launching
                         text: root.service && root.service.launching ? "Connecting…" : "Pandora settings"
@@ -884,8 +991,8 @@ Item {
                         text: root.service ? root.service.artist : ""
                         color: root.accent
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Style.font.title * 1.57)
-                        font.weight: Font.DemiBold
+                        font.pixelSize: Math.round(Style.font.title * 1.62)
+                        font.weight: Font.Medium
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         elide: Text.ElideRight
                       }
@@ -895,45 +1002,70 @@ Item {
                         visible: root.service && root.service.album !== ""
                         textFormat: Text.PlainText
                         text: root.service ? root.service.album : ""
-                        color: root.artPalette.accentAlt || root.muted
+                        color: root.muted
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Style.font.title * 1.32)
-                        font.weight: Font.Medium
+                        font.pixelSize: Math.round(Style.font.title * 1.16)
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         elide: Text.ElideRight
                       }
 
-                      Row {
-                        anchors.horizontalCenter: heroStage.compact ? undefined : parent.horizontalCenter
-                        anchors.left: heroStage.compact ? parent.left : undefined
-                        spacing: Style.space(8)
+                      BorderSurface {
+                        id: stationBadge
+                        x: heroStage.compact
+                          ? (LayoutMirroring.enabled ? nowPlayingMeta.width - width : 0)
+                          : (nowPlayingMeta.width - width) / 2
+                        width: Math.min(nowPlayingMeta.width, stationBadgeContent.implicitWidth + Style.space(17))
+                        height: Style.space(30)
                         visible: root.service && root.service.stationName !== ""
+                        radius: height / 2
+                        color: Util.alpha(root.accentAlt, 0.10)
+                        borderSpec: Border.flat(Util.alpha(root.accentAlt, 0.24), 1)
 
-                        Text {
-                          width: Math.min(implicitWidth,
-                            Math.max(1, nowPlayingMeta.width - pinCurrent.width - parent.spacing))
-                          textFormat: Text.PlainText
-                          text: root.service ? root.service.stationName : ""
-                          color: root.artPalette.accentAlt || root.muted
-                          font.family: root.fontFamily
-                          font.pixelSize: Style.font.body
-                          elide: Text.ElideRight
-                          anchors.verticalCenter: parent.verticalCenter
-                        }
+                        Row {
+                          id: stationBadgeContent
+                          anchors.centerIn: parent
+                          spacing: Style.space(6)
 
-                        Button {
-                          id: pinCurrent
-                          iconText: root.service && root.service.isPinned(root.service.stationPath)
-                            ? "󰐃" : "󰤱"
-                          foreground: root.artPalette.accentAlt || root.foreground
-                          accent: root.accentAlt
-                          tooltipText: root.service && root.service.isPinned(root.service.stationPath)
-                            ? "Unpin from My list" : "Pin to My list"
-                          onClicked: if (root.service)
-                            root.service.togglePin({
-                              path: root.service.stationPath,
-                              name: root.service.stationName
-                            })
+                          PlaybackIndicator {
+                            width: Style.space(15)
+                            height: Style.space(14)
+                            anchors.verticalCenter: parent.verticalCenter
+                            playing: !!(root.service && root.service.playing)
+                            active: root.opened && stationBadge.visible
+                            tone: root.accentAlt
+                          }
+
+                          Text {
+                            readonly property real availableWidth: Math.max(1, nowPlayingMeta.width
+                              - pinCurrent.width - Style.space(44))
+                            width: Math.min(implicitWidth, availableWidth)
+                            textFormat: Text.PlainText
+                            text: root.service ? root.service.stationName : ""
+                            color: root.accentAlt
+                            font.family: root.displayFamily
+                            font.pixelSize: Style.font.bodySmall
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            anchors.verticalCenter: parent.verticalCenter
+                          }
+
+                          TransportButton {
+                            id: pinCurrent
+                            controlSize: Style.space(23)
+                            glyphSize: Style.font.bodySmall
+                            anchors.verticalCenter: parent.verticalCenter
+                            glyphText: root.service && root.service.isPinned(root.service.stationPath)
+                              ? "󰐃" : "󰤱"
+                            foreground: root.accentAlt
+                            accent: root.accentAlt
+                            tooltipText: root.service && root.service.isPinned(root.service.stationPath)
+                              ? "Unpin from My list" : "Pin to My list"
+                            onClicked: if (root.service)
+                              root.service.togglePin({
+                                path: root.service.stationPath,
+                                name: root.service.stationName
+                              })
+                          }
                         }
                       }
                     }
@@ -943,75 +1075,124 @@ Item {
                 Visualizer {
                   id: visualizer
                   anchors.fill: parent
-                  anchors.margins: Style.space(12)
-                  centerHeight: Math.round(parent.height * 0.33)
-                  protectedWidth: (heroStage.compact ? nowPlayingHero.width : nowPlayingMeta.width)
-                    + Style.space(24)
+                  anchors.margins: Style.space(15)
+                  centerHeight: Math.round(parent.height * 0.23)
+                  protectedWidth: heroStage.compact ? nowPlayingHero.width + Style.space(28)
+                    : Math.max(nowPlayingHero.coverSize + Style.space(56),
+                        Math.min(nowPlayingMeta.width, heroTitle.implicitWidth + Style.space(64)))
                   playing: !!(root.service && root.service.playing)
                   active: root.opened && root.currentTab === "nowplaying"
-                  barColors: root.artPalette.accent
-                    ? [root.accentAlt, root.accent, root.muted] : [root.accent]
-                  shadedBars: !!root.artPalette.accent
+                  barColors: [root.accentAlt, Qt.tint(root.accentAlt, Util.alpha(root.accent, 0.68)), root.accent]
                   dimColor: root.muted
                 }
               }
 
-              ListView {
-                id: searchFlick
+              DeckSurface {
                 anchors.fill: parent
-                anchors.margins: Style.space(4)
                 visible: root.currentTab === "stations"
-                clip: true
-                reuseItems: true
-                spacing: Style.space(4)
-                model: visible ? root.filteredStations : []
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                baseColor: root.surface
+                accent: root.accentAlt
+                themed: true
+                radius: Style.space(16)
 
-                delegate: RowLayout {
-                  id: searchResult
-                  required property int index
-                  required property var modelData
-                  width: searchFlick.width - Style.space(10)
-                  spacing: Style.space(6)
+                ColumnLayout {
+                  anchors.fill: parent
+                  anchors.margins: Style.space(14)
+                  spacing: Style.space(8)
 
-                  StationTile {
+                  RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Style.space(40)
-                    text: searchResult.modelData.name || "Station"
-                    iconText: currentStation ? "󰎆" : "󰐹"
-                    foreground: currentStation ? root.accent : root.foreground
-                    accent: root.accent
-                    selected: searchResult.index === root.stationCursor
-                    currentStation: !!(root.service && searchResult.modelData.path === root.service.stationPath)
-                    onClicked: root.playStation(searchResult.modelData.path)
+                    Layout.leftMargin: Style.space(7)
+
+                    Text {
+                      textFormat: Text.PlainText
+                      text: root.stationFilter.trim() ? "Search results" : "All stations"
+                      color: root.foreground
+                      font.family: root.displayFamily
+                      font.pixelSize: Style.font.subtitle
+                      font.weight: Font.DemiBold
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Text {
+                      visible: root.connected
+                      textFormat: Text.PlainText
+                      text: Commons.I18n.formatNumber(root.filteredStations.length)
+                      color: root.accentAlt
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                    }
                   }
 
-                  Button {
-                    Layout.alignment: Qt.AlignVCenter
-                    iconText: root.service && root.service.isPinned(searchResult.modelData.path)
-                      ? "󰐃" : "󰤱"
-                    foreground: root.accentAlt
-                    accent: root.accentAlt
-                    tooltipText: root.service && root.service.isPinned(searchResult.modelData.path)
-                      ? "Unpin from My list" : "Pin to My list"
-                    onClicked: if (root.service) root.service.togglePin(searchResult.modelData)
+                  Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Util.alpha(root.foreground, 0.10)
+                  }
+
+                  Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    ListView {
+                      id: searchFlick
+                      anchors.fill: parent
+                      clip: true
+                      reuseItems: true
+                      spacing: Style.space(4)
+                      model: root.currentTab === "stations" ? root.filteredStations : []
+                      boundsBehavior: Flickable.StopAtBounds
+                      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                      delegate: RowLayout {
+                        id: searchResult
+                        required property int index
+                        required property var modelData
+                        width: searchFlick.width - Style.space(10)
+                        spacing: Style.space(6)
+
+                        StationTile {
+                          Layout.fillWidth: true
+                          Layout.preferredHeight: Style.space(41)
+                          text: searchResult.modelData.name || "Station"
+                          iconText: "󰐹"
+                          foreground: currentStation ? root.accent : root.foreground
+                          accent: root.accent
+                          selected: searchResult.index === root.stationCursor
+                          currentStation: !!(root.service && searchResult.modelData.path === root.service.stationPath)
+                          playingStation: currentStation && root.service.playing
+                          onClicked: root.playStation(searchResult.modelData.path)
+                        }
+
+                        TransportButton {
+                          Layout.alignment: Qt.AlignVCenter
+                          glyphText: root.service && root.service.isPinned(searchResult.modelData.path)
+                            ? "󰐃" : "󰤱"
+                          foreground: root.accentAlt
+                          accent: root.accentAlt
+                          tooltipText: root.service && root.service.isPinned(searchResult.modelData.path)
+                            ? "Unpin from My list" : "Pin to My list"
+                          onClicked: if (root.service) root.service.togglePin(searchResult.modelData)
+                        }
+                      }
+                    }
+
+                    Text {
+                      anchors.centerIn: parent
+                      width: Math.min(parent.width - Style.space(24), Style.space(460))
+                      visible: !root.filteredStations.length
+                      textFormat: Text.PlainText
+                      text: !root.connected ? "Sign in through Settings to load your stations."
+                        : root.stationFilter.trim() ? "No stations match your search." : "No stations are available."
+                      horizontalAlignment: Text.AlignHCenter
+                      wrapMode: Text.WordWrap
+                      color: root.muted
+                      font.family: root.displayFamily
+                      font.pixelSize: Style.font.subtitle
+                    }
                   }
                 }
-              }
-
-              Text {
-                anchors.centerIn: parent
-                width: Math.min(parent.width - Style.space(24), Style.space(460))
-                visible: searchFlick.visible && !root.filteredStations.length
-                textFormat: Text.PlainText
-                text: !root.connected ? "Sign in through Settings to load your stations."
-                  : root.stationFilter.trim() ? "No stations match your search." : "No stations are available."
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                color: root.muted
-                font.family: root.displayFamily
-                font.pixelSize: Style.font.subtitle
               }
 
               Loader {
@@ -1024,36 +1205,15 @@ Item {
                   accent: root.accent
                   accentAlt: root.accentAlt
                   background: root.background
-                  themed: !!root.artPalette.accent
                 }
               }
             }
           }
         }
 
-        PanelSeparator {
-          id: footerSeparator
-          visible: true
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.bottom: playerFooter.top
-          anchors.bottomMargin: Style.space(4)
-          foreground: root.artPalette.accentAlt || root.foreground
-          gradient: root.artPalette.accent ? playbackRail : null
-
-          Gradient {
-            id: playbackRail
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Util.alpha(root.accentAlt, 0.22) }
-            GradientStop { position: 0.35; color: Util.alpha(root.accentAlt, 0.72) }
-            GradientStop { position: 0.72; color: Util.alpha(root.accent, 0.72) }
-            GradientStop { position: 1; color: Util.alpha(root.accent, 0.22) }
-          }
-        }
-
         DeckSurface {
           anchors.horizontalCenter: parent.horizontalCenter
-          anchors.bottom: footerSeparator.top
+          anchors.bottom: playerFooter.top
           anchors.bottomMargin: Style.space(10)
           width: Math.min(parent.width - Style.space(20), Style.space(510))
           height: playbackMessage.implicitHeight + Style.space(20)
@@ -1079,288 +1239,226 @@ Item {
           }
         }
 
-        BorderSurface {
+        DeckSurface {
           id: playerFooter
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.bottom: parent.bottom
-          height: Style.space(108)
-          color: Util.alpha(Qt.darker(root.background, 1.58), 0.94)
-          radius: Style.cornerRadius
-          borderSpec: root.frameSpec(root.browseTarget === "player")
+          height: Style.space(96)
+          baseColor: root.surface
+          accent: root.accentAlt
+          themed: true
+          emphasized: root.browseTarget === "player" && !root.sidebarCollapsed
+          radius: Style.space(16)
 
-          Row {
-            id: playerRow
+          RowLayout {
             anchors.fill: parent
-            anchors.margins: Style.space(7)
-            spacing: Style.space(7)
-            readonly property real deckWidth: width - 2 * spacing
+            anchors.leftMargin: Style.space(14)
+            anchors.rightMargin: Style.space(15)
+            anchors.topMargin: Style.space(9)
+            anchors.bottomMargin: Style.space(9)
+            spacing: Style.space(14)
 
-            DeckSurface {
-              width: Math.round(playerRow.deckWidth * 0.29)
-              height: parent.height
-              baseColor: root.background
-              accent: root.accentAlt
-              themed: !!root.artPalette.accent
+            RowLayout {
+              Layout.fillWidth: false
+              Layout.preferredWidth: Math.max(Style.space(185), playerFooter.width * 0.28)
+              Layout.minimumWidth: Style.space(170)
+              Layout.fillHeight: true
+              spacing: Style.space(10)
 
               AlbumFrame {
-                id: footerArt
-                width: Math.min(parent.height - Style.space(16), Style.space(64))
-                height: width
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(9)
-                anchors.verticalCenter: parent.verticalCenter
-                radius: Style.cornerRadius
-                color: Style.selectedFillFor(root.foreground, root.accent)
+                Layout.preferredWidth: Style.space(53)
+                Layout.preferredHeight: Style.space(53)
+                radius: Style.space(8)
+                color: root.surface
                 foreground: root.foreground
                 accent: root.accent
                 accentAlt: root.accentAlt
-                tinted: !!root.artPalette.accentAlt
+                tinted: true
 
-                ArtImage {
+                CoverTransition {
                   id: footerArtImage
                   anchors.fill: parent
                   anchors.margins: Style.space(2)
-                  requestedSource: root.service ? root.service.artUrl : ""
-                  sourceSize.width: 128
-                  sourceSize.height: 128
-                  fillMode: Image.PreserveAspectFit
-                  asynchronous: true
-                  cache: true
-                  fadeIn: true
-                  visible: hasArtwork
+                  requestedSource: root.opened && root.service ? root.service.artUrl : ""
+                  decodeSize: 128
                 }
 
-                Text {
-                  textFormat: Text.PlainText
-                  anchors.centerIn: parent
+                FallbackCover {
+                  anchors.fill: parent
+                  anchors.margins: Style.space(2)
                   visible: !footerArtImage.hasArtwork
-                  text: "󰎈"
-                  color: root.muted
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.iconLarge
+                  baseColor: root.background
+                  accent: root.accent
+                  accentAlt: root.accentAlt
                 }
               }
 
-              Column {
-                anchors.left: footerArt.right
-                anchors.leftMargin: Style.space(10)
-                anchors.right: parent.right
-                anchors.rightMargin: Style.space(8)
-                anchors.verticalCenter: parent.verticalCenter
+              ColumnLayout {
+                Layout.fillWidth: true
                 spacing: Style.space(3)
 
-                Row {
-                  width: parent.width
-                  spacing: Style.space(3)
-                  Text {
-                    width: Math.max(20, parent.width - footerLike.width - parent.spacing)
-                    textFormat: Text.PlainText
-                    text: root.service && root.service.title
-                      ? root.service.title : "Nothing playing"
-                    color: root.service && root.service.title ? root.foreground : root.muted
-                    font.family: root.displayFamily
-                    font.pixelSize: Style.font.title * 1.08
-                    font.weight: Font.DemiBold
-                    anchors.verticalCenter: parent.verticalCenter
-                    elide: Text.ElideRight
-                  }
-                  Button {
-                    id: footerLike
-                    iconText: root.service && root.service.loved ? "󰋑" : "󰋕"
-                    iconSize: Style.font.body
-                    foreground: Commons.Color.urgent
-                    accent: Commons.Color.urgent
-                    enabled: root.connected && root.service && root.service.hasMedia
-                    horizontalPadding: Style.space(4)
-                    verticalPadding: Style.space(2)
-                    tooltipText: root.service && root.service.loved ? "Loved" : "Love this song"
-                    onClicked: if (root.service) root.service.toggleLove()
-                  }
+                Text {
+                  Layout.fillWidth: true
+                  textFormat: Text.PlainText
+                  text: root.service && root.service.title ? root.service.title : "Nothing playing"
+                  color: root.foreground
+                  font.family: root.displayFamily
+                  font.pixelSize: Style.font.title * 1.06
+                  font.weight: Font.DemiBold
+                  elide: Text.ElideRight
                 }
 
                 Text {
-                  width: parent.width
+                  Layout.fillWidth: true
                   textFormat: Text.PlainText
                   text: root.service && root.service.artist
                     ? root.service.artist : "Choose a station to play"
-                  color: root.service && root.service.artist ? root.accent : root.muted
+                  color: root.muted
                   font.family: root.displayFamily
-                  font.pixelSize: Style.font.body
+                  font.pixelSize: Style.font.bodySmall
                   elide: Text.ElideRight
                 }
               }
-            }
 
-            DeckSurface {
-              width: Math.round(playerRow.deckWidth * 0.47)
-              height: parent.height
-              baseColor: root.background
-              accent: root.accent
-              themed: !!root.artPalette.accent
-              emphasized: root.browseTarget === "player"
-
-              Column {
-                anchors.centerIn: parent
-                width: parent.width - Style.space(26)
-                spacing: Style.space(6)
-
-                Row {
-                  anchors.horizontalCenter: parent.horizontalCenter
-                  spacing: Style.space(8)
-
-                  TransportButton {
-                    glyphText: "󰥊"
-                    foreground: root.foreground
-                    tooltipText: "Tired"
-                    enabled: root.connected && root.service && root.service.hasMedia
-                    onClicked: if (root.service) root.service.tired()
-                  }
-                  TransportButton {
-                    glyphText: "󰒮"
-                    foreground: root.foreground
-                    enabled: false
-                    opacity: 0.35
-                    tooltipText: "Previous is not available on Pandora"
-                  }
-                  TransportButton {
-                    glyphText: root.service && root.service.playing ? "󰏤" : "󰐊"
-                    controlSize: Style.space(42)
-                    glyphSize: Style.font.iconLarge * 1.16
-                    radius: controlSize / 2
-                    foreground: root.artPalette.accent || root.foreground
-                    tooltipText: root.service && root.service.playing ? "Pause" : "Play"
-                    accent: root.accent
-                    selected: true
-                    onClicked: if (root.service) root.service.togglePlayback()
-                  }
-                  TransportButton {
-                    glyphText: "󰒭"
-                    foreground: root.foreground
-                    tooltipText: "Skip"
-                    enabled: root.connected && root.service && root.service.canGoNext
-                    onClicked: if (root.service) root.service.next()
-                  }
-                  TransportButton {
-                    glyphText: "󰅙"
-                    foreground: root.foreground
-                    tooltipText: "Ban"
-                    enabled: root.connected && root.service && root.service.hasMedia
-                    onClicked: if (root.service) root.service.ban()
-                  }
-                }
-
-                Row {
-                  width: parent.width
-                  spacing: Style.space(8)
-                  visible: root.service && root.service.lengthSeconds > 0
-                  Text {
-                    id: elapsedTime
-                    textFormat: Text.PlainText
-                    text: Api.millisecondsToClock((root.service ? root.service.positionSeconds : 0) * 1000)
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    anchors.verticalCenter: parent.verticalCenter
-                  }
-                  PlaybackSlider {
-                    width: Math.max(1, parent.width - elapsedTime.width - totalTime.width - 2 * parent.spacing)
-                    anchors.verticalCenter: parent.verticalCenter
-                    trackHeight: Style.space(5)
-                    bar: null
-                    trackColor: root.artPalette.accent ? Util.alpha(root.accent, 0.24) : "#333"
-                    fillColor: root.artPalette.accent || root.foreground
-                    knobColor: fillColor
-                    minimum: 0
-                    maximum: Math.max(1, root.service ? root.service.lengthSeconds : 1)
-                    sourceValue: root.service ? root.service.positionSeconds : 0
-                    enabled: false
-                  }
-                  Text {
-                    id: totalTime
-                    textFormat: Text.PlainText
-                    text: Api.millisecondsToClock((root.service ? root.service.lengthSeconds : 0) * 1000)
-                    color: root.muted
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                    anchors.verticalCenter: parent.verticalCenter
-                  }
-                }
+              TransportButton {
+                glyphText: root.service && root.service.loved ? "󰋑" : "󰋕"
+                foreground: root.service && root.service.loved ? Commons.Color.urgent : root.muted
+                accent: Commons.Color.urgent
+                enabled: root.connected && root.service && root.service.hasMedia
+                tooltipText: root.service && root.service.loved ? "Loved" : "Love this song"
+                onClicked: if (root.service) root.service.toggleLove()
               }
             }
 
-            DeckSurface {
-              width: playerRow.deckWidth - Math.round(playerRow.deckWidth * 0.29)
-                - Math.round(playerRow.deckWidth * 0.47)
-              height: parent.height
-              baseColor: root.alternateSurface
-              accent: root.accentAlt
-              themed: !!root.artPalette.accent
+            Rectangle {
+              Layout.preferredWidth: 1
+              Layout.preferredHeight: Style.space(42)
+              color: Util.alpha(root.foreground, 0.10)
+            }
 
-              Column {
-                anchors.centerIn: parent
-                width: parent.width - Style.space(20)
-                spacing: Style.space(4)
+            ColumnLayout {
+              Layout.fillWidth: true
+              Layout.minimumWidth: Style.space(200)
+              spacing: Style.space(4)
 
-                Row {
-                  width: parent.width
-                  spacing: Style.space(7)
+              Row {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: Style.space(8)
 
-                  TransportButton {
-                    id: muteButton
-                    glyphText: volumeSlider.value <= 0.001 ? "󰝟" : "󰕾"
-                    foreground: root.accentAlt
-                    accent: root.accentAlt
-                    controlSize: Style.space(28)
-                    tooltipText: volumeSlider.value <= 0.001 ? "Unmute" : "Mute"
-                    enabled: root.connected
-                    onClicked: root.toggleMute()
-                  }
-
-                  Text {
-                    id: volumeLabel
-                    textFormat: Text.PlainText
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Volume"
-                    color: root.foreground
-                    font.family: root.displayFamily
-                    font.pixelSize: Style.font.body
-                    font.weight: Font.DemiBold
-                  }
-
-                  Item {
-                    width: Math.max(0, parent.width - muteButton.width - volumeLabel.width
-                      - volumePercent.width - 3 * parent.spacing)
-                    height: 1
-                  }
-
-                  Text {
-                    id: volumePercent
-                    textFormat: Text.PlainText
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Math.round(Api.clampUnit(volumeSlider.value) * 100) + "%"
-                    color: root.accentAlt
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
+                TransportButton {
+                  anchors.verticalCenter: parent.verticalCenter
+                  glyphText: "󰥊"
+                  foreground: root.muted
+                  accent: root.accentAlt
+                  tooltipText: "Tired of this song"
+                  enabled: root.connected && root.service && root.service.hasMedia
+                  onClicked: if (root.service) root.service.tired()
                 }
 
-                PlaybackSlider {
-                  id: volumeSlider
-                    Accessible.name: "Volume"
-                  width: parent.width
-                  trackHeight: Style.space(5)
-                  trackColor: root.artPalette.accentAlt ? Util.alpha(root.accentAlt, 0.24) : "#333"
-                  fillColor: root.artPalette.accentAlt || root.foreground
-                  knobColor: fillColor
-                  minimum: 0
-                  maximum: 1
-                  step: 0.05
-                  sourceValue: root.service ? root.service.volume : 0
-                  liveCommit: true
-                  enabled: root.service && root.service.volumeSupported
-                  onCommitted: function(value) { root.setVolumeValue(value) }
+                TransportButton {
+                  anchors.verticalCenter: parent.verticalCenter
+                  glyphText: "󰒮"
+                  foreground: root.muted
+                  enabled: false
+                  opacity: 0.35
+                  tooltipText: "Previous is not available on Pandora"
                 }
+
+                TransportButton {
+                  anchors.verticalCenter: parent.verticalCenter
+                  glyphText: root.service && root.service.playing ? "󰏤" : "󰐊"
+                  controlSize: Style.space(44)
+                  glyphSize: Style.font.iconLarge * 1.18
+                  foreground: root.foreground
+                  accent: root.accent
+                  accentAlt: root.accentAlt
+                  primary: true
+                  tooltipText: root.service && root.service.playing ? "Pause" : "Play"
+                  onClicked: if (root.service) root.service.togglePlayback()
+                }
+
+                TransportButton {
+                  anchors.verticalCenter: parent.verticalCenter
+                  glyphText: "󰒭"
+                  foreground: root.foreground
+                  accent: root.accent
+                  tooltipText: "Skip"
+                  enabled: root.connected && root.service && root.service.canGoNext
+                  onClicked: if (root.service) root.service.next()
+                }
+
+                TransportButton {
+                  anchors.verticalCenter: parent.verticalCenter
+                  glyphText: "󰅙"
+                  foreground: root.muted
+                  accent: root.accentAlt
+                  tooltipText: "Ban this song"
+                  enabled: root.connected && root.service && root.service.hasMedia
+                  onClicked: if (root.service) root.service.ban()
+                }
+              }
+
+              ProgressTrack {
+                Layout.fillWidth: true
+                visible: root.service && root.service.lengthSeconds > 0
+                position: root.service ? root.service.positionSeconds : 0
+                duration: root.service ? root.service.lengthSeconds : 0
+                foreground: root.foreground
+                muted: root.muted
+                accent: root.accent
+                accentAlt: root.accentAlt
+              }
+            }
+
+            Rectangle {
+              Layout.preferredWidth: 1
+              Layout.preferredHeight: Style.space(42)
+              color: Util.alpha(root.foreground, 0.10)
+            }
+
+            RowLayout {
+              Layout.fillWidth: false
+              Layout.preferredWidth: Math.min(Style.space(238), playerFooter.width * 0.24)
+              Layout.minimumWidth: Style.space(145)
+              spacing: Style.space(6)
+
+              TransportButton {
+                controlSize: Style.space(29)
+                glyphText: volumeSlider.value <= 0.001 ? "󰝟" : "󰕾"
+                foreground: root.accentAlt
+                accent: root.accentAlt
+                tooltipText: volumeSlider.value <= 0.001 ? "Unmute" : "Mute"
+                enabled: root.connected
+                onClicked: root.toggleMute()
+              }
+
+              PlaybackSlider {
+                id: volumeSlider
+                Layout.fillWidth: true
+                Accessible.name: "Volume"
+                trackHeight: Style.space(4)
+                knobSize: Style.space(12)
+                trackColor: Util.alpha(root.foreground, 0.16)
+                fillColor: root.accentAlt
+                knobColor: fillColor
+                minimum: 0
+                maximum: 1
+                step: 0.05
+                sourceValue: root.service ? root.service.volume : 0
+                liveCommit: true
+                enabled: root.service && root.service.volumeSupported
+                onCommitted: function(value) { root.setVolumeValue(value) }
+              }
+
+              Text {
+                Layout.preferredWidth: Style.space(33)
+                textFormat: Text.PlainText
+                text: Math.round(Api.clampUnit(volumeSlider.value) * 100) + "%"
+                color: root.muted
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                horizontalAlignment: Text.AlignRight
               }
             }
           }
@@ -1378,55 +1476,100 @@ Item {
           onClicked: root.shortcutHelpOpen = false
         }
 
-        BorderSurface {
+        DeckSurface {
           anchors.centerIn: parent
           width: Math.min(parent.width - Style.space(80), Style.space(560))
-          height: helpColumn.implicitHeight + Style.space(32)
-          radius: Style.cornerRadius
-          color: Util.alpha(root.background, 0.94)
-          borderSpec: Border.controlSpec("normal", root.foreground, root.accent)
+          height: helpColumn.implicitHeight + Style.space(36)
+          baseColor: root.surface
+          accent: root.accentAlt
+          themed: true
+          emphasized: true
+          radius: Style.space(16)
 
-          Column {
+          ColumnLayout {
             id: helpColumn
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Style.space(16)
-            spacing: Style.space(8)
+            anchors.margins: Style.space(18)
+            spacing: Style.space(7)
 
-            Text {
-              textFormat: Text.PlainText
-              text: "Keyboard shortcuts"
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.title
-              font.bold: true
+            RowLayout {
+              Layout.fillWidth: true
+
+              Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: "Keyboard shortcuts"
+                color: root.foreground
+                font.family: root.displayFamily
+                font.pixelSize: Style.font.display
+                font.weight: Font.DemiBold
+              }
+
+              TransportButton {
+                glyphText: "󰅖"
+                foreground: root.muted
+                accent: root.accentAlt
+                tooltipText: "Close keyboard shortcuts"
+                onClicked: root.shortcutHelpOpen = false
+              }
+            }
+
+            Rectangle {
+              Layout.fillWidth: true
+              Layout.preferredHeight: 1
+              color: Util.alpha(root.foreground, 0.11)
             }
 
             Repeater {
               model: [
-                "Ctrl+F or / — Search stations",
-                "Tab / F6 — My list, Your stations, then the big player",
-                "Arrow keys — Move inside the Tab group",
-                "Enter — Play the highlighted station",
-                "C — Pin or unpin the highlighted station",
-                "Space — Play or pause",
-                "Ctrl+Right — Next song",
-                "Ctrl+Up / Ctrl+Down — Volume",
-                "M — Mute or restore volume",
-                "V — Cycle Spectrum, Mirror, and Orbit",
-                "Ctrl+/ — This list",
-                "Esc — Close the player"
+                ["Ctrl+F or /", "Search stations"],
+                ["Ctrl+B", "Hide or show the station sidebar"],
+                ["Tab / F6", "Cycle through My list, stations, and the player"],
+                ["↑ / ↓", "Move within the current section"],
+                ["Enter", "Play the highlighted station"],
+                ["C", "Pin or unpin the highlighted station"],
+                ["Space", "Play or pause"],
+                ["Ctrl+→", "Skip to the next song"],
+                ["Ctrl+↑ / Ctrl+↓", "Adjust volume"],
+                ["M", "Mute or restore volume"],
+                ["V", "Cycle visualizers"],
+                ["Esc", "Close the active view"]
               ]
-              Text {
-                textFormat: Text.PlainText
-                required property string modelData
-                width: helpColumn.width
-                text: modelData
-                color: root.muted
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.body
-                wrapMode: Text.WordWrap
+
+              RowLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                spacing: Style.space(12)
+
+                Rectangle {
+                  Layout.preferredWidth: Style.space(147)
+                  Layout.preferredHeight: Style.space(23)
+                  radius: Style.space(5)
+                  color: Util.alpha(root.accentAlt, 0.09)
+                  border.width: 1
+                  border.color: Util.alpha(root.accentAlt, 0.15)
+
+                  Text {
+                    anchors.centerIn: parent
+                    textFormat: Text.PlainText
+                    text: modelData[0]
+                    color: root.accentAlt
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  textFormat: Text.PlainText
+                  text: modelData[1]
+                  color: root.muted
+                  font.family: root.displayFamily
+                  font.pixelSize: Style.font.body
+                  wrapMode: Text.WordWrap
+                }
               }
             }
           }

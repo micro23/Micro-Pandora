@@ -1,8 +1,7 @@
 import QtQuick
-import QtQuick.Shapes
 import qs.Commons as Commons
 
-Item {
+Canvas {
   id: root
 
   required property var levels
@@ -12,80 +11,87 @@ Item {
   required property bool playing
   required property real centerHeight
   required property var heightLimit
-  readonly property real centerLine: height - centerHeight / 2
-  readonly property var envelope: {
-    var bands = []
-    for (var first = 0; first < levels.length; first += 2) {
-      var a = levels[first]
-      var b = levels[first + 1] ?? a
-      bands.push(Math.max(a, b) * 0.68 + Math.min(a, b) * 0.32)
-    }
-    return bands
+
+  onLevelsChanged: if (visible) requestPaint()
+  onLowChanged: requestPaint()
+  onMidChanged: requestPaint()
+  onHighChanged: requestPaint()
+  onPlayingChanged: requestPaint()
+  onCenterHeightChanged: requestPaint()
+  onWidthChanged: requestPaint()
+  onHeightChanged: requestPaint()
+  onVisibleChanged: if (visible) requestPaint()
+
+  function colors(ctx, alpha) {
+    var glow = ctx.createLinearGradient(0, 0, width, 0)
+    glow.addColorStop(0, Commons.Util.alpha(low, 0))
+    glow.addColorStop(0.15, Commons.Util.alpha(low, alpha))
+    glow.addColorStop(0.49, Commons.Util.alpha(mid, alpha * 0.65))
+    glow.addColorStop(0.85, Commons.Util.alpha(high, alpha))
+    glow.addColorStop(1, Commons.Util.alpha(high, 0))
+    return glow
   }
 
-  function bandY(index, distance, reflected) {
-    if (index >= envelope.length) return centerLine
-    if (reflected) return centerLine + centerHeight * 0.39 * envelope[index]
-    var availableHeight = heightLimit((index + 1) * distance, distance)
-    return centerLine - Math.min(availableHeight * 0.52, centerLine * 0.84) * envelope[index]
+  function trace(ctx, points, baseline, multiplier) {
+    var dx = width / (points.length + 1)
+    ctx.moveTo(0, baseline)
+    for (var i = 0; i < points.length; i++) {
+      var x = (i + 1) * dx
+      var current = points[i]
+      var next = points[i + 1] || 0
+      ctx.quadraticCurveTo(x, baseline + current * multiplier,
+        x + dx * 0.5, baseline + (current + next) * multiplier * 0.5)
+    }
+    ctx.lineTo(width, baseline)
   }
 
-  function lobe(reflected) {
-    if (envelope.length < 2 || width <= 0) return ""
-    var path = ["M 0", centerLine]
-    var distance = width / (envelope.length + 1)
-    for (var i = 0; i < envelope.length; i++) {
-      var x = (i + 1) * distance
-      var y = bandY(i, distance, reflected)
-      var nextY = bandY(i + 1, distance, reflected)
-      path.push("Q", x.toFixed(1), y.toFixed(1), (x + distance / 2).toFixed(1),
-                ((y + nextY) / 2).toFixed(1))
+  function ribbon(ctx, points, baseline, multiplier, opacity, fill) {
+    ctx.beginPath()
+    trace(ctx, points, baseline, multiplier)
+    if (fill) {
+      ctx.closePath()
+      ctx.fillStyle = colors(ctx, opacity * 0.21)
+      ctx.fill()
     }
-    path.push("L", width, centerLine, "Z")
-    return path.join(" ")
+    ctx.strokeStyle = colors(ctx, opacity)
+    ctx.lineWidth = fill && multiplier < 0 ? 1.8 : 1
+    ctx.stroke()
   }
 
-  Rectangle {
-    width: parent.width
-    height: 1
-    y: root.centerLine
-    gradient: Gradient {
-      orientation: Gradient.Horizontal
-      GradientStop { position: 0; color: Commons.Util.alpha(root.low, 0) }
-      GradientStop { position: 0.5; color: Commons.Util.alpha(root.mid, 0.30) }
-      GradientStop { position: 1; color: Commons.Util.alpha(root.high, 0) }
-    }
-  }
+  onPaint: {
+    var ctx = getContext("2d")
+    if (!ctx || width <= 0 || height <= 0) return
+    ctx.reset()
+    ctx.clearRect(0, 0, width, height)
+    if (levels.length < 4) return
 
-  Shape {
-    anchors.fill: parent
-    visible: root.envelope.length > 0
-    preferredRendererType: Shape.CurveRenderer
-
-    ShapePath {
-      strokeColor: Commons.Util.alpha(Qt.lighter(root.mid, 1.18), root.playing ? 0.78 : 0.34)
-      strokeWidth: root.playing ? 1.45 : 1
-      joinStyle: ShapePath.RoundJoin
-      fillGradient: LinearGradient {
-        x2: root.width
-        GradientStop { position: 0; color: Commons.Util.alpha(root.low, 0.67) }
-        GradientStop { position: 0.5; color: Commons.Util.alpha(root.mid, 0.40) }
-        GradientStop { position: 1; color: Commons.Util.alpha(root.high, 0.58) }
-      }
-      PathSvg { path: root.lobe(false) }
+    var axis = height - centerHeight * 0.37
+    var points = []
+    var bandCount = Math.ceil(levels.length / 2)
+    for (var index = 0; index < bandCount; index++) {
+      var a = levels[index * 2]
+      var b = levels[index * 2 + 1] ?? a
+      var energy = Math.max(a, b) * 0.66 + Math.min(a, b) * 0.34
+      var x = (index + 1) * width / (bandCount + 1)
+      var allowance = Math.min(axis * 0.73, heightLimit(x, 0) * 0.66)
+      points.push(3 + energy * (playing ? allowance : centerHeight * 0.22))
     }
 
-    ShapePath {
-      strokeColor: Commons.Util.alpha(root.mid, root.playing ? 0.28 : 0.14)
-      strokeWidth: 1
-      joinStyle: ShapePath.RoundJoin
-      fillGradient: LinearGradient {
-        x2: root.width
-        GradientStop { position: 0; color: Commons.Util.alpha(root.low, 0.19) }
-        GradientStop { position: 0.5; color: Commons.Util.alpha(root.mid, 0.14) }
-        GradientStop { position: 1; color: Commons.Util.alpha(root.high, 0.18) }
-      }
-      PathSvg { path: root.lobe(true) }
+    var strength = playing ? 1 : 0.36
+    ribbon(ctx, points, axis, 0.31, strength * 0.33, true)
+    ribbon(ctx, points, axis, 0.18, strength * 0.24, false)
+    ribbon(ctx, points, axis, -1.0, strength, true)
+    ribbon(ctx, points, axis, -0.82, strength * 0.39, false)
+    ribbon(ctx, points, axis, -0.61, strength * 0.30, false)
+    ribbon(ctx, points, axis, -0.40, strength * 0.24, false)
+
+    ctx.fillStyle = colors(ctx, strength * 0.68)
+    ctx.fillRect(0, Math.round(axis), width, 1)
+    ctx.fillStyle = colors(ctx, strength * 0.44)
+    var dx = width / 40
+    for (var tick = 1; tick < 40; tick++) {
+      var tickHeight = tick % 5 === 0 ? 6 : 3
+      ctx.fillRect(Math.round(tick * dx), axis + 2, 1, tickHeight)
     }
   }
 }

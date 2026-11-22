@@ -4,7 +4,9 @@ import qs.Ui
 
 Button {
   id: root
+
   property bool currentStation: false
+  property bool playingStation: false
 
   Accessible.role: Accessible.Button
   Accessible.name: root.text
@@ -12,32 +14,26 @@ Button {
   Accessible.onPressAction: if (root.enabled) root.clicked()
 
   leftAlign: true
-  height: Style.space(32)
-  horizontalPadding: Style.space(12)
+  height: Style.space(33)
+  radius: Style.space(8)
+  horizontalPadding: Style.space(11)
   verticalPadding: Style.space(4)
   iconSize: Style.font.body
-  background: currentStation || selected ? Util.alpha(accent, 0.16) : "transparent"
-  color: hot ? Style.hoverFillFor(foreground, accent) : background
-  gradient: currentStation || selected ? stationWash : null
+  fontFamily: "Adwaita Sans"
+  background: currentStation ? Util.alpha(accent, 0.16)
+    : selected ? Util.alpha(accent, 0.10) : "transparent"
+  color: hot ? Util.alpha(accent, 0.20) : background
+  borderSpec: Border.flat(Util.alpha(accent, currentStation ? 0.25 : selected || bordered ? 0.18 : 0), 1)
+  rightPadding: playingStation ? Style.space(24) : horizontalPadding
 
-  Gradient {
-    id: stationWash
-    orientation: Gradient.Horizontal
-    GradientStop { position: 0; color: Qt.tint(root.color, Util.alpha(root.accent, 0.16)) }
-    GradientStop { position: 0.72; color: root.color }
-    GradientStop { position: 1; color: Qt.tint(root.color, Util.alpha(root.accent, 0.02)) }
-  }
-
-  Rectangle {
-    opacity: root.currentStation ? 1 : root.selected ? 0.52 : 0
-    visible: opacity > 0
-    anchors.left: parent.left
-    anchors.leftMargin: Style.space(3)
+  PlaybackIndicator {
     anchors.verticalCenter: parent.verticalCenter
-    width: Style.space(3)
-    height: parent.height * 0.57
-    radius: width / 2
-    color: root.accent
-    Behavior on opacity { NumberAnimation { duration: Style.duration(170) } }
+    anchors.right: parent.right
+    anchors.rightMargin: Style.space(8)
+    width: Style.space(12)
+    height: width
+    visible: root.playingStation
+    playing: root.playingStation
+    tone: root.accent
   }
 }

@@ -8,22 +8,28 @@ Button {
   property string glyphText: ""
   property real glyphSize: Style.font.icon
   property real controlSize: Style.space(32)
+  property bool primary: false
+  property color accentAlt: accent
+  readonly property color primaryInk: Qt.tint("#111318", Util.alpha(accent, 0.12))
 
   Accessible.role: Accessible.Button
   Accessible.name: root.tooltipText
   Accessible.onPressAction: if (root.enabled) root.clicked()
 
-  width: controlSize
-  height: controlSize
+  implicitWidth: controlSize
+  implicitHeight: controlSize
+  width: implicitWidth
+  height: implicitHeight
   horizontalPadding: 0
   verticalPadding: 0
-  gradient: selected && enabled ? transportShine : null
+  radius: root.primary ? width / 2 : Style.space(8)
+  gradient: root.primary && enabled ? transportShine : null
 
   Gradient {
     id: transportShine
-    GradientStop { position: 0; color: Qt.tint(root.color, Util.alpha(root.accent, root.hot ? 0.25 : 0.15)) }
-    GradientStop { position: 0.36; color: Qt.tint(root.color, Util.alpha(root.accent, 0.09)) }
-    GradientStop { position: 1; color: root.color }
+    orientation: Gradient.Horizontal
+    GradientStop { position: 0; color: Qt.tint(root.accentAlt, Qt.rgba(1, 1, 1, root.hot ? 0.30 : 0.15)) }
+    GradientStop { position: 1; color: Qt.tint(root.accent, Qt.rgba(1, 1, 1, root.hot ? 0.38 : 0.21)) }
   }
 
   readonly property int renderedGlyphSize: Math.max(1, Math.round(glyphSize))
@@ -52,8 +58,6 @@ Button {
     font.family: root.fontFamily
     font.pixelSize: root.renderedGlyphSize
     renderType: Text.NativeRendering
-    color: root.selected
-      ? Style.selectedStateColor(root.foreground, root.accent)
-      : root.foreground
+    color: root.primary && root.enabled ? root.primaryInk : root.foreground
   }
 }

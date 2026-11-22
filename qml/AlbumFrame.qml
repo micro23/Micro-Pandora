@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.Commons
 import qs.Ui
 
@@ -14,23 +13,35 @@ BorderSurface {
 
   borderSpec: {
     if (!root.tinted) return Border.controlSpec("normal", root.foreground, root.accent)
-    var outline = Border.flat(Util.alpha(root.accent, 0.72), Style.space(2))
+    var outline = Border.flat(Util.alpha(root.accent, 0.55), Math.max(1, Style.space(2)))
     outline.gradient = {
-      colors: [Util.alpha(root.accent, 0.90), Util.alpha(root.foreground, 0.22),
-        Util.alpha(root.accentAlt, 0.68), Util.alpha(root.accentAlt, 0.88)],
-      angle: 52,
+      colors: [Util.alpha(root.foreground, 0.50), Util.alpha(root.accentAlt, 0.62),
+        Util.alpha(root.foreground, 0.20), Util.alpha(root.accent, 0.64)],
+      angle: 45,
       enabled: true
     }
     return outline
   }
 
-  layer.enabled: root.tinted && root.glow
-  layer.effect: MultiEffect {
-    shadowEnabled: true
-    shadowColor: Util.alpha(root.accentAlt, 0.36)
-    shadowBlur: 1
-    shadowVerticalOffset: Style.space(9)
-    blurMax: 28
-    blurMultiplier: 1
+  Rectangle {
+    anchors.fill: parent
+    anchors.margins: -Style.space(6)
+    radius: root.radius + Style.space(5)
+    color: "transparent"
+    border.width: 1
+    border.color: Util.alpha(root.accentAlt, 0.24)
+    visible: root.glow
+    z: -1
+  }
+
+  Rectangle {
+    anchors.fill: parent
+    anchors.margins: -Style.space(11)
+    radius: root.radius + Style.space(10)
+    color: "transparent"
+    border.width: 1
+    border.color: Util.alpha(root.accent, 0.09)
+    visible: root.glow
+    z: -1
   }
 }

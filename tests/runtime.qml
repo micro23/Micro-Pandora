@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import qs.Commons
 
 ShellRoot {
   id: root
@@ -13,6 +14,15 @@ ShellRoot {
 
   function check(result, message) {
     if (!result) throw new Error(message)
+  }
+
+  function findVisualChild(item, name) {
+    if (item.objectName === name) return item
+    for (var child of item.children) {
+      var match = findVisualChild(child, name)
+      if (match) return match
+    }
+    return null
   }
 
   Timer {
@@ -70,7 +80,31 @@ ShellRoot {
         root.check(stations === service.stations, "stable station delegate input during polling")
         root.check(palette === service.artPalette, "stable palette during polling")
 
+        Style.reduceMotion = true
         var panel = root.component("Panel").createObject(null, { service: service })
+        panel.open("{}")
+        var content = null
+        for (var object of panel.data) {
+          if (object.contentItem && object.title === "Micro-Pandora") content = object.contentItem
+        }
+        root.check(content !== null, "full player window exists")
+        var sidebar = root.findVisualChild(content, "stationSidebar")
+        var sidebarToggle = root.findVisualChild(content, "stationSidebarToggle")
+        root.check(sidebar && sidebarToggle && sidebar.width > 0, "station sidebar starts expanded")
+        sidebarToggle.clicked()
+        root.check(panel.sidebarCollapsed && service.stationSidebarCollapsed && sidebar.width === 0,
+                   "the header control hides the sidebar and frees its complete width")
+        root.check(sidebarToggle.visible && sidebarToggle.enabled, "the restore control stays available")
+        panel.close()
+        panel.open("{}")
+        root.check(panel.sidebarCollapsed && sidebar.width === 0, "sidebar choice survives a reopening")
+        sidebarToggle.clicked()
+        root.check(!panel.sidebarCollapsed && sidebar.width > 0, "the header control restores the sidebar")
+        panel.selectVisualizer(2)
+        root.check(service.visualizerMode === 2, "the picker records the chosen visualizer")
+        panel.nextVisualizer()
+        root.check(service.visualizerMode === 0, "V cycles from Orbit back to Spectrum")
+
         panel.focusSearch()
         panel.stationFilter = "jazz"
         root.check(panel.currentTab === "stations", "search opens its results")

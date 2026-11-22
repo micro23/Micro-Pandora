@@ -11,11 +11,11 @@ Item {
   property bool active: visible
   property var barColors: [Commons.Color.accent]
   property color dimColor: Commons.Color.muted
-  property bool shadedBars: false
   property int barCount: 56
   property real centerHeight: height
   property real protectedWidth: 0
   property int modeIndex: 0
+  readonly property var linearTones: bandTones(false)
   readonly property var modeNames: ["Spectrum", "Mirror", "Orbit"]
   readonly property string modeName: modeNames[modeIndex]
   readonly property bool shouldCapture: active && playing
@@ -28,11 +28,23 @@ Item {
   property var peakLevels: blankLevels()
   property bool settling: false
   readonly property bool animateLevels: active && playing && !Commons.Style.reduceMotion
+  readonly property real canvasScale: Math.max(1, width / 1536, height / 864)
 
   readonly property string runner: Api.helperPath(Qt.resolvedUrl("../helpers/cava-run"))
 
   function nextMode() {
-    modeIndex = (modeIndex + 1) % modeNames.length
+    selectMode((modeIndex + 1) % modeNames.length)
+  }
+
+  function selectMode(index) {
+    if (index >= 0 && index < modeNames.length) modeIndex = index
+  }
+
+  function bandTones(circular) {
+    var colors = []
+    for (var i = 0; i < barCount; i++)
+      colors.push(playing ? gradientColor(i, circular) : dimColor)
+    return colors
   }
 
   function refreshMonitor() {
@@ -60,6 +72,7 @@ Item {
     } else {
       monitor = ""
       stopCapture()
+      levels = blankLevels()
     }
   }
   Component.onCompleted: {
@@ -186,7 +199,7 @@ Item {
     property string currentMonitor: ""
     stdout: SplitParser {
       splitMarker: "\n"
-      onRead: function(line) { root.parseFrame(line) }
+      onRead: function(line) { if (root.shouldCapture) root.parseFrame(line) }
     }
     stderr: StdioCollector { id: cavaErrors; waitForEnd: true }
     onExited: function(code) {
@@ -201,72 +214,46 @@ Item {
     }
   }
 
-  onPlayingChanged: if (!playing) levels = blankLevels()
-
   Item {
-    anchors.fill: parent
-    visible: !root.captureError
+    id: renderLayer
 
-    Row {
-      id: row
+    // Canvas uploads each painted frame. Keep the texture bounded when the
+    // player is maximized on a large output.
+    width: root.width / root.canvasScale
+    height: root.height / root.canvasScale
+    scale: root.canvasScale
+    transformOrigin: Item.TopLeft
+    visible: !(root.shouldCapture && root.captureError)
+
+    readonly property real centerHeight: root.centerHeight / root.canvasScale
+    function heightLimit(x, bandWidth) {
+      return root.heightLimit(x * root.canvasScale, bandWidth * root.canvasScale) / root.canvasScale
+    }
+
+    SpectrumField {
       anchors.fill: parent
+      levels: visible ? root.displayLevels : []
+      peaks: visible ? root.peakLevels : []
+      tones: root.linearTones
+      heightLimit: renderLayer.heightLimit
+      centerHeight: renderLayer.centerHeight
+      low: root.linearTones[0] || root.dimColor
+      mid: root.linearTones[Math.floor(root.linearTones.length / 2)] || root.dimColor
+      high: root.linearTones[root.linearTones.length - 1] || root.dimColor
+      playing: root.playing
+      showPeaks: root.animateLevels
       opacity: root.modeIndex === 0 ? 1 : 0
       visible: root.modeIndex === 0 || opacity > 0.01
-      spacing: Math.max(1, Math.floor(width / root.barCount * 0.22))
 
       Behavior on opacity {
-        NumberAnimation { duration: Commons.Style.duration(220); easing.type: Easing.OutCubic }
-      }
-
-      Repeater {
-        model: row.visible ? root.barCount : 0
-        Item {
-          id: band
-          required property int index
-          readonly property color tone: root.gradientColor(index)
-          readonly property real availableHeight: root.playing
-            ? root.heightLimit(x + width / 2, width) : root.centerHeight
-          width: Math.max(3, (row.width - row.spacing * (root.barCount - 1)) / root.barCount)
-          height: row.height
-
-          Rectangle {
-            id: spectrumBar
-            width: parent.width
-            height: Math.max(4, band.availableHeight * (root.displayLevels[band.index] || 0.03))
-            anchors.bottom: parent.bottom
-            radius: Math.max(1, width / 2)
-            color: root.playing ? band.tone : root.dimColor
-            gradient: root.playing && root.shadedBars ? barShading : null
-            opacity: root.playing ? 0.92 : 0.24
-
-            Gradient {
-              id: barShading
-              GradientStop { position: 0; color: Qt.lighter(band.tone, 1.27) }
-              GradientStop { position: 0.34; color: band.tone }
-              GradientStop { position: 1; color: Qt.darker(band.tone, 1.95) }
-            }
-          }
-
-          Rectangle {
-            readonly property real peakHeight: band.availableHeight * (root.peakLevels[band.index] || 0)
-            readonly property real gap: peakHeight - spectrumBar.height
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: Math.max(0, band.height - peakHeight - height)
-            width: Math.max(2, parent.width * 0.73)
-            height: Math.max(1, Math.min(3, band.width * 0.18))
-            radius: height / 2
-            color: Qt.lighter(band.tone, 1.33)
-            visible: root.animateLevels && peakHeight > 12 && gap > 5
-            opacity: Math.min(0.75, gap / 38)
-          }
-        }
+        NumberAnimation { duration: Commons.Style.duration(240); easing.type: Easing.OutCubic }
       }
     }
 
     MirrorRibbon {
       anchors.fill: parent
-      centerHeight: root.centerHeight
-      heightLimit: root.heightLimit
+      centerHeight: renderLayer.centerHeight
+      heightLimit: renderLayer.heightLimit
       opacity: root.modeIndex === 1 ? 1 : 0
       visible: root.modeIndex === 1 || opacity > 0.01
       levels: visible ? root.displayLevels : []
@@ -284,17 +271,11 @@ Item {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      height: root.centerHeight
+      height: renderLayer.centerHeight * 1.38
       opacity: root.modeIndex === 2 ? 1 : 0
       visible: root.modeIndex === 2 || opacity > 0.01
       levels: visible ? root.displayLevels : []
-      tones: {
-        if (!visible) return []
-        var colors = []
-        for (var i = 0; i < root.barCount; i++)
-          colors.push(root.playing ? root.gradientColor(i, true) : root.dimColor)
-        return colors
-      }
+      tones: visible ? root.bandTones(true) : []
       guideColor: root.playing ? root.gradientColor((root.barCount - 1) / 2) : root.dimColor
       playing: root.playing
 

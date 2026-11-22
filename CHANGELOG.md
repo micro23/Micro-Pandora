@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Rebuild the full and mini players around album-tinted surfaces, larger artwork, and a unified transport. Crossfade covers once the next image is ready.
+- Redesign Spectrum, Mirror, and Orbit with a direct visualizer picker.
+- Hide and restore the station sidebar from the header or with Ctrl+B.
+
 ## v0.4.0
 
 - Add Pandora sign-in to Settings using Pithos’s desktop keyring format.

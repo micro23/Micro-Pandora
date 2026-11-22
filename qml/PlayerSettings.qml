@@ -13,13 +13,14 @@ Flickable {
   required property color accent
   required property color accentAlt
   required property color background
-  property bool themed: false
+  readonly property color formSurface: Qt.tint(background, Qt.rgba(0, 0, 0, 0.34))
+  readonly property string displayFamily: "Adwaita Sans"
   readonly property bool formReady: account && account.ready
   readonly property bool busy: !!(account && account.busy)
 
   clip: true
   contentWidth: width
-  contentHeight: layout.implicitHeight + Style.space(24)
+  contentHeight: layout.implicitHeight + Style.space(36)
   boundsBehavior: Flickable.StopAtBounds
 
   function submit() {
@@ -33,37 +34,39 @@ Flickable {
     }
   }
 
-  Column {
+  GridLayout {
     id: layout
-    width: Math.min(parent.width - Style.space(24), Style.space(570))
+    width: Math.min(root.width - Style.space(24), Style.space(850))
     anchors.horizontalCenter: parent.horizontalCenter
-    y: Style.space(12)
-    spacing: Style.space(12)
+    y: Style.space(18)
+    columns: width >= Style.space(730) ? 2 : 1
+    columnSpacing: Style.space(14)
+    rowSpacing: Style.space(12)
 
     DeckSurface {
-      width: parent.width
-      height: signIn.implicitHeight + Style.space(30)
-      baseColor: root.background
+      Layout.fillWidth: true
+      Layout.alignment: Qt.AlignTop
+      Layout.preferredWidth: Style.space(450)
+      Layout.preferredHeight: signIn.implicitHeight + Style.space(42)
+      baseColor: root.formSurface
       accent: root.accent
-      themed: root.themed
+      themed: true
       emphasized: true
+      radius: Style.space(15)
 
       ColumnLayout {
         id: signIn
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Style.space(15)
-        spacing: Style.space(8)
+        anchors.margins: Style.space(21)
+        spacing: Style.space(11)
 
-        Text {
+        CardHeading {
           Layout.fillWidth: true
-          text: "Pandora account"
-          textFormat: Text.PlainText
-          color: root.foreground
-          font.family: "Adwaita Sans"
-          font.pixelSize: Math.round(Style.font.display * 1.12)
-          font.weight: Font.DemiBold
+          title: "Pandora account"
+          symbol: "󰍂"
+          tone: root.accent
         }
 
         Text {
@@ -73,12 +76,12 @@ Flickable {
             ? "Connected. Saving different credentials reconnects playback."
             : "Sign in here to load your stations. Your password is saved in the desktop keyring."
           color: root.muted
-          font.family: "Adwaita Sans"
+          font.family: root.displayFamily
           font.pixelSize: Style.font.body
           wrapMode: Text.WordWrap
         }
 
-        TextField {
+        AccountField {
           id: emailField
           Layout.fillWidth: true
           Layout.preferredHeight: Style.space(40)
@@ -93,7 +96,7 @@ Flickable {
           onAccepted: passwordField.forceActiveFocus()
         }
 
-        TextField {
+        AccountField {
           id: passwordField
           Layout.fillWidth: true
           Layout.preferredHeight: Style.space(40)
@@ -113,8 +116,12 @@ Flickable {
             : root.account && root.account.hasStations ? "Reconnect" : "Connect"
           enabled: root.formReady && !root.busy && !root.account.changingWindow &&
             emailField.text.trim() !== "" && (passwordField.length > 0 || emailField.text.trim() === root.account.email)
-          foreground: root.accent
+          foreground: root.foreground
           accent: root.accent
+          fontFamily: root.displayFamily
+          radius: Style.space(8)
+          horizontalPadding: Style.space(13)
+          background: Util.alpha(root.accent, 0.13)
           bordered: true
           focusable: true
           onClicked: root.submit()
@@ -126,7 +133,7 @@ Flickable {
           textFormat: Text.PlainText
           text: root.account ? root.account.message : ""
           color: root.account && root.account.failed ? Commons.Color.urgent : root.accentAlt
-          font.family: "Adwaita Sans"
+          font.family: root.displayFamily
           font.pixelSize: Style.font.body
           wrapMode: Text.WordWrap
         }
@@ -134,28 +141,28 @@ Flickable {
     }
 
     DeckSurface {
-      width: parent.width
-      height: backend.implicitHeight + Style.space(30)
-      baseColor: root.background
+      Layout.fillWidth: true
+      Layout.alignment: Qt.AlignTop
+      Layout.preferredWidth: Style.space(350)
+      Layout.preferredHeight: backend.implicitHeight + Style.space(42)
+      baseColor: root.formSurface
       accent: root.accentAlt
-      themed: root.themed
+      themed: true
+      radius: Style.space(15)
 
       ColumnLayout {
         id: backend
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Style.space(15)
-        spacing: Style.space(8)
+        anchors.margins: Style.space(21)
+        spacing: Style.space(11)
 
-        Text {
+        CardHeading {
           Layout.fillWidth: true
-          text: "Playback backend"
-          textFormat: Text.PlainText
-          color: root.foreground
-          font.family: "Adwaita Sans"
-          font.pixelSize: Style.font.title * 1.18
-          font.weight: Font.DemiBold
+          title: "Playback backend"
+          symbol: "󰎇"
+          tone: root.accentAlt
         }
 
         Text {
@@ -165,7 +172,7 @@ Flickable {
             ? "Setup needs " + root.account.missing.join(", ") + "."
             : "Pithos handles playback in the background. Show its window if you need its native controls."
           color: root.muted
-          font.family: "Adwaita Sans"
+          font.family: root.displayFamily
           font.pixelSize: Style.font.body
           wrapMode: Text.WordWrap
         }
@@ -204,6 +211,53 @@ Flickable {
           }
         }
       }
+    }
+  }
+  component AccountField: TextField {
+    id: input
+    font.family: root.displayFamily
+    background: BorderSurface {
+      radius: Style.space(8)
+      color: Qt.tint(root.formSurface, Util.alpha(root.foreground, input.activeFocus ? 0.055 : 0.028))
+      borderSpec: Border.flat(Util.alpha(root.accent, input.activeFocus ? 0.59 : 0.18), 1)
+    }
+  }
+
+  component CardHeading: RowLayout {
+    id: heading
+    required property string title
+    required property string symbol
+    required property color tone
+    spacing: Style.space(9)
+
+    Rectangle {
+      Layout.preferredWidth: Style.space(34)
+      Layout.preferredHeight: Style.space(34)
+      radius: Style.space(9)
+      color: Util.alpha(heading.tone, 0.13)
+      border.width: 1
+      border.color: Util.alpha(heading.tone, 0.25)
+
+      OpticalGlyph {
+        anchors.centerIn: parent
+        width: Style.space(18)
+        height: width
+        text: heading.symbol
+        color: heading.tone
+        fontFamily: Style.font.family
+        fontSize: Style.font.iconLarge
+      }
+    }
+
+    Text {
+      Layout.fillWidth: true
+      textFormat: Text.PlainText
+      text: heading.title
+      color: root.foreground
+      font.family: root.displayFamily
+      font.pixelSize: Style.font.display
+      font.weight: Font.DemiBold
+      elide: Text.ElideRight
     }
   }
 }
