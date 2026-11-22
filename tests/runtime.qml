@@ -76,6 +76,10 @@ ShellRoot {
           levels: Array(56).fill(0.04)
         })
         var floor = orbit.originY
+        var east = orbit.point(0, 1, 0)
+        var west = orbit.point(Math.PI, 1, 0)
+        root.check(east[1] === west[1] && (east[0] + west[0]) / 2 === orbit.originX,
+                   "Orbit is level and centered at rest")
         var lowHit = Array(9).fill(0.98).concat(Array(47).fill(0.17))
         orbit.levels = lowHit
         var peakLift = 0
@@ -85,11 +89,24 @@ ShellRoot {
         }
         root.check(orbit.phase > 0.5 && peakLift >= 0.5 && orbit.originY < floor - 13,
                    "Orbit turns and lifts on a bass hit")
+        east = orbit.point(0.36, 1.2, -25)
+        west = orbit.point(Math.PI - 0.36, 1.2, -25)
+        root.check(Math.abs(east[1] - west[1]) < 0.001
+                   && Math.abs(east[0] + west[0] - 2 * orbit.originX) < 0.001,
+                   "a bass hit lifts the two sides equally")
         orbit.levels = Array(56).fill(0.03)
         for (var releaseFrame = 0; releaseFrame < 60; releaseFrame++) orbit.advance(0.016)
         root.check(orbit.lift < peakLift * 0.18, "Orbit settles after the hit")
         root.check(!orbit.moving && !orbit.settling, "Orbit respects reduced motion")
         orbit.destroy()
+
+        var cover = root.component("CoverTransition").createObject(null, {
+          artworkOpacity: 0.43, blend: 0.58
+        })
+        var combined = cover.incomingOpacity + (1 - cover.incomingOpacity) * cover.outgoingOpacity
+        root.check(Math.abs(combined - cover.artworkOpacity) < 0.001,
+                   "translucent covers keep the same total opacity during a crossfade")
+        cover.destroy()
 
         var service = root.component("Service").createObject(null)
         function snapshot() {
@@ -151,8 +168,8 @@ ShellRoot {
         root.check(panel.currentTab === "setup", "a fresh install opens directly to setup")
         root.testedPanel = panel
         root.testedService = service
-        service.applyStatus({ connected: true, artUrl: "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI")
-                              + "/../helpers/micro-pandora.png" })
+        var coverUrl = "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI") + "/../helpers/micro-pandora.png"
+        service.applyStatus({ connected: true, artUrl: coverUrl, backdropUrl: coverUrl })
         panel.chooseTab("nowplaying")
         coverCheck.start()
         return

@@ -29,7 +29,6 @@ Canvas {
   readonly property real originY: height * (0.59 - lift * 0.16)
   readonly property real radiusX: Math.min(width * 0.32, height * 1.85) * (1 + lift * 0.15)
   readonly property real radiusY: height * (0.205 + lift * 0.10)
-  readonly property real tilt: -0.10 + Math.sin(phase * 0.72) * 0.082 + lift * 0.09
 
   onLevelsChanged: if (visible && !moving) requestPaint()
   onTonesChanged: requestPaint()
@@ -102,8 +101,7 @@ Canvas {
   function point(angle, scale, offset) {
     var x = Math.cos(angle) * radiusX * scale
     var depth = Math.sin(angle)
-    return [originX + x * 0.95,
-      originY + depth * radiusY * scale + x * tilt * 0.95 + offset]
+    return [originX + x * 0.95, originY + depth * radiusY * scale + offset]
   }
 
   function trace(ctx, scale, start, sweep, offset) {
@@ -120,17 +118,16 @@ Canvas {
     var rx = radiusX * scale * 0.95
     var ry = radiusY * scale
     ctx.beginPath()
-    ctx.save()
-    ctx.transform(1, tilt, 0, 1, originX, originY + offset)
-    ctx.ellipse(-rx, -ry, rx * 2, ry * 2)
-    ctx.restore()
+    ctx.ellipse(originX - rx, originY + offset - ry, rx * 2, ry * 2)
   }
 
   function gradient(ctx, low, middle, high) {
     var ink = ctx.createLinearGradient(originX - radiusX, 0, originX + radiusX, 0)
     ink.addColorStop(0, low)
-    ink.addColorStop(0.48, Commons.Util.alpha(middle, 0.74))
-    ink.addColorStop(1, high)
+    ink.addColorStop(0.21, high)
+    ink.addColorStop(0.5, Commons.Util.alpha(middle, 0.74))
+    ink.addColorStop(0.79, high)
+    ink.addColorStop(1, low)
     return ink
   }
 
@@ -158,6 +155,36 @@ Canvas {
     ctx.fill()
   }
 
+  function sweepPair(ctx, scale, angle, span, tone, strength) {
+    sweep(ctx, scale, angle, span, tone, strength)
+    sweep(ctx, scale, Math.PI - angle, -span, tone, strength)
+  }
+
+  function peakPair(ctx, angle, energy, tone, quiet) {
+    var depth = 0.44 + 0.56 * (1 + Math.sin(angle)) / 2
+    var start = point(angle, 1.026, 0)
+    var finish = point(angle, 1.075 + energy * 0.29,
+      -energy * height * (0.12 + 0.06 * lift))
+    var startOther = 2 * originX - start[0]
+    var finishOther = 2 * originX - finish[0]
+    ctx.beginPath()
+    ctx.moveTo(start[0], start[1])
+    ctx.lineTo(finish[0], finish[1])
+    ctx.moveTo(startOther, start[1])
+    ctx.lineTo(finishOther, finish[1])
+    ctx.strokeStyle = Commons.Util.alpha(tone, quiet * depth * (0.44 + energy * 0.54))
+    ctx.lineWidth = 1 + energy * (0.8 + depth * 1.7)
+    ctx.stroke()
+    if (energy <= 0.39 || depth <= 0.6) return
+    var tip = 1 + energy * 1.1
+    ctx.fillStyle = Commons.Util.alpha(Qt.lighter(tone, 1.24), quiet * depth * 0.71)
+    ctx.beginPath()
+    ctx.arc(finish[0], finish[1], tip, 0, fullCircle)
+    ctx.moveTo(finishOther + tip, finish[1])
+    ctx.arc(finishOther, finish[1], tip, 0, fullCircle)
+    ctx.fill()
+  }
+
   function light(ctx, x, y, radius, tone, strength) {
     var glow = ctx.createRadialGradient(x, y, 0, x, y, radius)
     glow.addColorStop(0, Commons.Util.alpha(tone, strength))
@@ -176,12 +203,12 @@ Canvas {
     if (count < 2) return
 
     var quiet = playing ? 1 : 0.34
-    var left = tones[Math.floor(count * 0.12)]
-    var right = tones[Math.floor(count * 0.62)]
+    var edge = tones[Math.floor(count * 0.12)]
+    var outer = tones[Math.floor(count * 0.62)]
     var inner = tones[Math.floor(count * 0.36)]
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    var ringInk = gradient(ctx, left, inner, right)
+    var ringInk = gradient(ctx, edge, inner, outer)
 
     // The floor stays in place while the orbit lifts above it.
     ctx.save()
@@ -205,32 +232,23 @@ Canvas {
       guide(ctx, 0.49 + waveAge * 0.82, ringInk, 0.68 * (1 - waveAge) * flash, 1.6, 0)
     }
 
-    var rotation = phase * 0.55
-    for (var band = 0; band < count; band++) {
-      var angle = band / count * fullCircle + rotation
-      var depth = 0.44 + 0.56 * (1 + Math.sin(angle)) / 2
-      var energy = levels[band]
-      var start = point(angle, 1.026, 0)
-      var finish = point(angle, 1.075 + energy * 0.29,
-        -energy * height * (0.12 + 0.06 * lift))
-      var tone = tones[band]
-      ctx.beginPath()
-      ctx.moveTo(start[0], start[1])
-      ctx.lineTo(finish[0], finish[1])
-      ctx.strokeStyle = Commons.Util.alpha(tone, quiet * depth * (0.44 + energy * 0.54))
-      ctx.lineWidth = 1 + energy * (0.8 + depth * 1.7)
-      ctx.stroke()
-      if (energy > 0.39 && depth > 0.6) {
-        ctx.beginPath()
-        ctx.arc(finish[0], finish[1], 1 + energy * 1.1, 0, fullCircle)
-        ctx.fillStyle = Commons.Util.alpha(Qt.lighter(tone, 1.24), depth * 0.71)
-        ctx.fill()
-      }
+    // Mirrored slots share the same energy. Moving the sampled frequencies
+    // around both sides keeps the Orbit centered even on a hard bass hit.
+    var pairCount = Math.ceil(count / 2)
+    for (var band = 0; band < pairCount; band++) {
+      var angle = ((band + 0.5) / pairCount - 0.5) * Math.PI
+      var sample = (band * count / pairCount + phase / fullCircle * count * 0.34) % count
+      var lo = Math.floor(sample)
+      var hi = (lo + 1) % count
+      var mix = sample - lo
+      var energy = levels[lo] + (levels[hi] - levels[lo]) * mix
+      var tone = Qt.tint(tones[lo], Commons.Util.alpha(tones[hi], mix))
+      peakPair(ctx, angle, energy, tone, quiet)
     }
 
-    sweep(ctx, 0.78, phase * 1.52 + 0.4, 0.92 + bass * 0.87, left, quiet * 0.89)
-    sweep(ctx, 0.53, -phase * 2.14 - 2.2, 0.76 + high * 0.93, right, quiet * 0.83)
-    sweep(ctx, 1.00, -phase * 0.84 + 2.26, 0.51 + bass * 0.63, inner, quiet * 0.84)
+    sweepPair(ctx, 0.78, phase * 1.52 + 0.4, 0.62 + bass * 0.69, edge, quiet * 0.78)
+    sweepPair(ctx, 0.53, -phase * 2.14 - 2.2, 0.44 + high * 0.75, outer, quiet * 0.73)
+    sweepPair(ctx, 1.00, -phase * 0.84 + 2.26, 0.37 + bass * 0.52, inner, quiet * 0.68)
 
     var size = Math.max(14, height * (0.078 + lift * 0.07))
     light(ctx, originX, originY, size * 2.0, guideColor, quiet * (0.38 + flash * 0.42))

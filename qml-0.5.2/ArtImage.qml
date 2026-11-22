@@ -15,6 +15,7 @@ Image {
     || (status === Image.Loading && hasLoadedCover)
 
   retainWhileLoading: true
+  autoTransform: true
 
   onStatusChanged: {
     if (status === Image.Ready) {

@@ -8,6 +8,7 @@ Rectangle {
   required property color baseColor
   required property color secondaryColor
   property string artSource: ""
+  property string backdropSource: ""
   property bool fullWindow: false
   readonly property bool silhouetteReady: !!(silhouette.item && silhouette.item.hasArtwork)
 
@@ -29,15 +30,14 @@ Rectangle {
   Loader {
     id: silhouette
     anchors.fill: parent
-    active: root.fullWindow && root.visible && root.artSource !== ""
+    active: root.fullWindow && root.visible && root.backdropSource !== ""
     sourceComponent: CoverTransition {
-      // Enlarge a small, smoothly sampled crop so faces and shapes carry
-      // across the window without sharp lettering competing with the title.
-      decodeSize: 56
+      // This image has already been filtered from the original local cover.
+      decodeSize: 960
       fillMode: Image.PreserveAspectCrop
       clip: true
-      opacity: 0.66
-      requestedSource: root.artSource
+      artworkOpacity: 0.43
+      requestedSource: root.backdropSource
     }
   }
 
@@ -96,8 +96,8 @@ Rectangle {
     anchors.fill: parent
     radius: root.radius
     gradient: Gradient {
-      GradientStop { position: 0; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.45 : 0.24) }
-      GradientStop { position: 0.36; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.20 : 0.08) }
+      GradientStop { position: 0; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.52 : 0.24) }
+      GradientStop { position: 0.36; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.25 : 0.08) }
       GradientStop { position: 0.73; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.44 : 0.33) }
       GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.72) }
     }

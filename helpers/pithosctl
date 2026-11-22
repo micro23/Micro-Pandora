@@ -2,12 +2,15 @@
 """Talk to a running Pithos player over MPRIS. Prints JSON."""
 
 import colorsys
+import hashlib
 import json
 import math
 import os
+from pathlib import Path
 import re
 import shlex
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -175,15 +178,90 @@ def readable_tint(rgb, background_luminance, lightness, saturation_limit, minimu
     return (255, 255, 255)
 
 
-def ranked_swatches(image_type, pixels):
+def ranked_swatches(image_type, pixels, count):
     sample = image_type.new("RGB", (len(pixels), 1))
     sample.putdata(pixels)
-    quantized = sample.quantize(colors=10)
+    quantized = sample.quantize(colors=count)
     palette = quantized.getpalette()
     return [
         (count, palette[index * 3 : index * 3 + 3])
         for count, index in sorted(quantized.getcolors(), reverse=True)
     ]
+
+
+def swatch_coordinates(rgb):
+    hue, lightness, saturation = colorsys.rgb_to_hls(*(channel / 255 for channel in rgb))
+    angle = hue * math.tau
+    chroma = saturation * (1 - abs(2 * lightness - 1))
+    return (math.cos(angle) * chroma, math.sin(angle) * chroma, lightness * 0.42)
+
+
+def choose_art_swatches(ranked, vivid_ranked):
+    # Keep secondary colors with a real presence in the cover. Sample the
+    # vivid subset separately so a small logo survives a large white margin.
+    population = {}
+    for count, rgb in ranked + vivid_ranked:
+        population[tuple(rgb)] = max(count, population.get(tuple(rgb), 0))
+    coordinates = {rgb: swatch_coordinates(rgb) for rgb in population}
+    vivid = {tuple(rgb) for _, rgb in vivid_ranked}
+    total = sum(count for count, _ in ranked)
+    candidates = {rgb: count for rgb, count in population.items()
+                  if count >= max(3, total * 0.008) or rgb in vivid}
+    if not candidates:
+        candidates[tuple(ranked[0][1])] = ranked[0][0]
+
+    def color_strength(rgb):
+        return math.hypot(*coordinates[rgb][:2])
+
+    primary = max(candidates, key=lambda rgb: (color_strength(rgb) + 0.035)
+                  * candidates[rgb] ** 0.27)
+    chosen = [primary]
+    accents = [primary]
+    colorful = color_strength(primary) >= 0.09
+
+    def separation(rgb):
+        if not colorful:
+            return min(math.dist(coordinates[rgb], coordinates[other]) for other in accents)
+        x, y, _ = coordinates[rgb]
+        hue = math.atan2(y, x)
+        return min(abs(math.remainder(hue - math.atan2(coordinates[other][1],
+                                                       coordinates[other][0]), math.tau))
+                   for other in accents)
+
+    minimum_gap = math.radians(23) if colorful else 0.075
+    for _ in range(3):
+        remaining = [rgb for rgb in candidates if rgb not in chosen
+                     and (not colorful or color_strength(rgb) >= 0.09)
+                     and separation(rgb) >= minimum_gap]
+        if not remaining:
+            break
+        next_color = max(remaining, key=lambda rgb: separation(rgb) ** 0.56
+                         * candidates[rgb] ** 0.22 * (0.17 + color_strength(rgb)))
+        chosen.append(next_color)
+        accents.append(next_color)
+
+    def unused_or(options, fallback):
+        options = [rgb for rgb in options if rgb not in chosen]
+        if not options:
+            return fallback
+        chosen.append(options[0])
+        return options[0]
+
+    # Prefer common colors for the dark surfaces and a light, low-chroma
+    # swatch for the title. Each takes its own sample where the art allows.
+    material = [tuple(rgb) for count, rgb in ranked if count >= max(2, total * 0.012)]
+    light_ink = sorted(material, key=lambda rgb: luminance(rgb) - color_strength(rgb) * 0.48,
+                       reverse=True)
+    text = unused_or(light_ink, light_ink[0] if light_ink else primary)
+    dominant = tuple(ranked[0][1])
+    base = unused_or([rgb for rgb in material if color_strength(rgb) >= 0.08],
+                     dominant if color_strength(dominant) >= 0.08 else primary)
+    def surface_score(rgb):
+        return (math.dist(coordinates[rgb], coordinates[base])
+                * (0.10 + color_strength(rgb)) * population[rgb] ** 0.16)
+
+    surface = unused_or(sorted(material, key=surface_score, reverse=True), accents[-1])
+    return accents, base, surface, text
 
 
 def extract_art_palette(url):
@@ -205,43 +283,102 @@ def extract_art_palette(url):
         if not pixels:
             return {}
 
-        ranked = ranked_swatches(Image, pixels)
-        vivid = [rgb for rgb in pixels if max(rgb) - min(rgb) >= 48 and max(rgb) >= 110]
-        # Sample color separately so bright white or black cover margins cannot
-        # wash out a smaller illustration or lettering.
-        vivid_ranked = ranked_swatches(Image, vivid) if len(vivid) >= max(12, len(pixels) * 0.015) else []
+        ranked = ranked_swatches(Image, pixels, 18)
+        vivid = [rgb for rgb in pixels if max(rgb) - min(rgb) >= 42 and max(rgb) >= 80]
+        vivid_ranked = []
+        if len(vivid) >= max(12, len(pixels) * 0.015):
+            vivid_ranked = [(count, rgb) for count, rgb in ranked_swatches(Image, vivid, 16)
+                            if count >= max(3, len(vivid) * 0.025)]
     except (OSError, ValueError, Image.DecompressionBombError):
         return {}
 
-    dominant = ranked[0][1]
-    substantial = [(count, rgb) for count, rgb in ranked if count >= len(pixels) * 0.02]
-    candidates = [(count, rgb) for count, rgb in vivid_ranked if count >= len(vivid) * 0.04] or substantial
-    accent = max(candidates, key=lambda pair: (max(pair[1]) - min(pair[1])) * pair[0] ** 0.30)[1]
-    text_tone = max(substantial, key=lambda pair: luminance(pair[1]) * pair[0] ** 0.35)[1]
-
-    def alternate_score(swatch):
-        count, rgb = swatch
-        distance = sum((channel - primary) ** 2 for channel, primary in zip(rgb, accent)) ** 0.5
-        return distance * (max(rgb) - min(rgb) + 24) * count ** 0.35
-
-    alternate = max(candidates, key=alternate_score)[1]
-    base = alternate if vivid_ranked and max(dominant) - min(dominant) < 20 else dominant
-    background = tint(base, 0.16, 0.64)
-    surface_candidates = [tint(rgb, 0.205, 0.70) for rgb in (accent, alternate)]
-    background_alt = max(
-        surface_candidates,
-        key=lambda rgb: sum((channel - base) ** 2 for channel, base in zip(rgb, background)),
-    )
+    accents, base, surface, text_tone = choose_art_swatches(ranked, vivid_ranked)
+    background = tint(base, 0.15, 0.57)
+    background_alt = tint(surface, 0.21, 0.61)
     lightest_surface = max(luminance(background), luminance(background_alt))
     colors = {
         "background": background,
         "backgroundAlt": background_alt,
-        "foreground": readable_tint(text_tone, lightest_surface, 94, 0.28, 7),
-        "muted": readable_tint(text_tone, lightest_surface, 72, 0.38, 5.5),
-        "accent": readable_tint(accent, lightest_surface, 70, 0.90, 5.5),
-        "accentAlt": readable_tint(alternate, lightest_surface, 62, 0.85, 5.5),
+        "foreground": readable_tint(text_tone, lightest_surface, 94, 0.22, 7),
+        "muted": readable_tint(text_tone, lightest_surface, 74, 0.30, 5.5),
     }
+    # Leave grayscale and limited-palette art recognizable. These related
+    # shades fill the remaining UI roles when the cover has fewer hues.
+    roles = (("accent", 72, 0.84), ("accentAlt", 64, 0.82),
+             ("volumeAccent", 68, 0.76), ("detailAccent", 58, 0.72))
+    for index, (role, lightness, saturation) in enumerate(roles):
+        repeated = index >= len(accents)
+        if repeated:
+            lightness = (84, 76, 68, 61)[index]
+            saturation *= 0.65
+        sample = accents[index % len(accents)]
+        color = readable_tint(sample, lightest_surface, lightness, saturation, 5.5)
+        while color in colors.values() and lightness < 94:
+            lightness += 2
+            color = readable_tint(sample, lightest_surface, lightness, saturation, 5.5)
+        colors[role] = color
+
     return {role: "#{:02x}{:02x}{:02x}".format(*rgb) for role, rgb in colors.items()}
+
+
+def cover_backdrop_url(url):
+    try:
+        from PIL import Image, ImageFilter, ImageOps
+    except ImportError:
+        return ""
+    try:
+        uri = urlsplit(url)
+        if uri.scheme != "file" or uri.netloc not in ("", "localhost"):
+            return ""
+        source = Path(unquote(uri.path))
+        if not source.is_absolute():
+            return ""
+        source_stat = source.stat()
+        if not stat.S_ISREG(source_stat.st_mode):
+            return ""
+        cache_root = Path(os.environ.get("XDG_RUNTIME_DIR") or os.environ.get("XDG_CACHE_HOME")
+                          or Path.home() / ".cache")
+        cache = cache_root / "micro-pandora-cover-backdrops"
+        cache.mkdir(mode=0o700, parents=True, exist_ok=True)
+        cache_stat = cache.lstat()
+        if cache.is_symlink() or cache_stat.st_uid != os.getuid() or cache_stat.st_mode & 0o077:
+            return ""
+        # The Pithos cache keeps the original download. Key our derivative by
+        # the file identity so a replaced cover gets the right blur next poll.
+        signature = f"v1:{source}:{source_stat.st_dev}:{source_stat.st_ino}:{source_stat.st_mtime_ns}:{source_stat.st_size}"
+        key = hashlib.sha256(os.fsencode(signature)).hexdigest()
+        target = cache / (key + ".jpg")
+        if target.is_file():
+            return target.as_uri()
+
+        with Image.open(source) as cover:
+            upright = ImageOps.exif_transpose(cover)
+            if min(upright.size) < 1 or max(upright.size) / min(upright.size) > 8:
+                return ""
+            backdrop = ImageOps.contain(upright.convert("RGB"), (960, 960), Image.Resampling.LANCZOS)
+            backdrop = backdrop.filter(ImageFilter.GaussianBlur(min(backdrop.size) * 0.024))
+        with tempfile.NamedTemporaryFile(dir=cache) as temporary:
+            backdrop.save(temporary, "JPEG", quality=88, optimize=True)
+            temporary.flush()
+            # Hard-link the complete temporary file so readers get a whole
+            # image and two simultaneous renders can share the same result.
+            try:
+                os.link(temporary.name, target)
+            except FileExistsError:
+                pass
+        images = [image for image in cache.glob("*.jpg")
+                  if image != target and re.fullmatch(r"[a-f0-9]{64}\.jpg", image.name)]
+        by_age = []
+        for image in images:
+            try:
+                by_age.append((image.stat().st_mtime_ns, image))
+            except FileNotFoundError:
+                continue
+        for _, stale in sorted(by_age, reverse=True)[23:]:
+            stale.unlink(missing_ok=True)
+        return target.as_uri()
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return ""
 
 
 def dump_status(bus, name):
@@ -297,6 +434,7 @@ def dump_status(bus, name):
         "artist": first_artist(meta),
         "album": clip(meta.get("xesam:album")),
         "artUrl": art_url,
+        "backdropUrl": cover_backdrop_url(art_url),
         "artPalette": extract_art_palette(art_url),
         "trackId": clip(meta.get("mpris:trackid"), MAX_URL),
         "loved": rating >= 0.99,
@@ -322,6 +460,7 @@ def disconnected():
         "artist": "",
         "album": "",
         "artUrl": "",
+        "backdropUrl": "",
         "artPalette": {},
         "trackId": "",
         "loved": False,

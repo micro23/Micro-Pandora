@@ -7,6 +7,8 @@ Canvas {
   required property color baseColor
   required property color primary
   required property color secondary
+  property color bounceLight: secondary
+  property real washOpacity: 0.83
   property real horizon: 0.80
   property int mode: 0
   property real cornerRadius: 0
@@ -14,12 +16,18 @@ Canvas {
   onBaseColorChanged: requestPaint()
   onPrimaryChanged: requestPaint()
   onSecondaryChanged: requestPaint()
+  onBounceLightChanged: requestPaint()
+  onWashOpacityChanged: requestPaint()
   onHorizonChanged: requestPaint()
   onModeChanged: requestPaint()
   onCornerRadiusChanged: requestPaint()
   onWidthChanged: requestPaint()
   onHeightChanged: requestPaint()
   onVisibleChanged: if (visible) requestPaint()
+
+  Behavior on washOpacity {
+    NumberAnimation { duration: Commons.Style.duration(245); easing.type: Easing.OutCubic }
+  }
 
   function light(ctx, x, y, radius, color, strength) {
     var glow = ctx.createRadialGradient(x, y, 0, x, y, radius)
@@ -55,13 +63,15 @@ Canvas {
     wash.addColorStop(0, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.48)))
     wash.addColorStop(0.52, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.72)))
     wash.addColorStop(1, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.85)))
+    ctx.globalAlpha = washOpacity
     ctx.fillStyle = wash
     ctx.fillRect(0, 0, width, height)
+    ctx.globalAlpha = 1
 
-    light(ctx, width * 0.17, height * 0.26, width * 0.49, secondary, 0.25)
-    light(ctx, width * 0.83, height * 0.34, width * 0.51, primary, 0.29)
-    light(ctx, width * 0.52, height * 0.68, width * 0.31, mode === 2 ? secondary : primary,
-      mode === 2 ? 0.18 : 0.07)
+    light(ctx, width * 0.13, height * 0.24, width * 0.55, secondary, 0.16)
+    light(ctx, width * 0.87, height * 0.32, width * 0.52, primary, 0.16)
+    light(ctx, width * 0.50, height * 0.89, width * 0.48, bounceLight,
+      mode === 2 ? 0.12 : 0.085)
 
     var edgeLight = ctx.createLinearGradient(0, 0, width, 0)
     edgeLight.addColorStop(0, Commons.Util.alpha(secondary, 0))

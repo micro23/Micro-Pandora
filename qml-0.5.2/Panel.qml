@@ -37,10 +37,12 @@ Item {
     || (lightTheme ? "#f4f4f6" : Commons.Color.foreground)
   property color background: artPalette.background
     || (lightTheme ? Qt.tint("#15171d", Util.alpha(Commons.Color.background, 0.08)) : Commons.Color.background)
-  readonly property color alternateSurface: artPalette.backgroundAlt || background
+  property color alternateSurface: artPalette.backgroundAlt || background
   property color accent: artPalette.accent
     || (lightTheme ? Qt.tint(Commons.Color.accent, Qt.rgba(1, 1, 1, 0.55)) : Commons.Color.accent)
   property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
+  property color volumeAccent: artPalette.volumeAccent || accentAlt
+  property color detailAccent: artPalette.detailAccent || accent
   property color muted: artPalette.muted
     || (lightTheme ? "#b1b5c2" : Qt.tint(foreground, Util.alpha(background, 0.30)))
   readonly property color surface: Qt.tint(background, Qt.rgba(0, 0, 0, 0.35))
@@ -48,6 +50,9 @@ Item {
   Behavior on foreground { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on background { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on accent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on alternateSurface { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on volumeAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+  Behavior on detailAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on accentAlt { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   Behavior on muted { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
   readonly property string fontFamily: Style.font.family
@@ -390,7 +395,7 @@ Item {
         fullWindow: true
         baseColor: root.surface
         secondaryColor: Qt.tint(root.surface, Util.alpha(root.alternateSurface, 0.52))
-        artSource: root.opened && root.service ? root.service.artUrl : ""
+        backdropSource: root.opened && root.service ? root.service.backdropUrl : ""
       }
 
       Shortcut {
@@ -508,9 +513,9 @@ Item {
               height: parent.height
               visible: sidebarSlot.width > 0
               enabled: !root.sidebarCollapsed
-              baseColor: root.surface
+              baseColor: Qt.tint(root.surface, Util.alpha(root.alternateSurface, 0.52))
               accent: root.accentAlt
-              secondaryAccent: root.accent
+              secondaryAccent: root.detailAccent
               themed: true
               litEdge: true
               radius: Style.space(16)
@@ -803,7 +808,7 @@ Item {
                 current: visualizer.modeIndex
                 foreground: root.foreground
                 muted: root.muted
-                accent: root.accent
+                accent: root.detailAccent
                 onChosen: function(mode) { root.selectVisualizer(mode) }
               }
 
@@ -903,13 +908,11 @@ Item {
                   baseColor: root.background
                   primary: root.accent
                   secondary: root.accentAlt
+                  bounceLight: root.detailAccent
+                  washOpacity: windowBackdrop.silhouetteReady ? 0.35 : 0.83
                   horizon: 0.69
                   mode: visualizer.modeIndex
                   cornerRadius: Style.space(16)
-                  opacity: windowBackdrop.silhouetteReady ? 0.22 : 0.83
-                  Behavior on opacity {
-                    NumberAnimation { duration: Style.duration(230); easing.type: Easing.OutCubic }
-                  }
                 }
 
                 Item {
@@ -961,7 +964,7 @@ Item {
                         anchors.fill: parent
                         anchors.margins: Style.space(4)
                         requestedSource: root.opened && root.service ? root.service.artUrl : ""
-                        decodeSize: 720
+                        decodeSize: 1080
                       }
 
                       FallbackCover {
@@ -1118,7 +1121,7 @@ Item {
                         Math.min(nowPlayingMeta.width, heroTitle.implicitWidth + Style.space(64)))
                   playing: !!(root.service && root.service.playing)
                   active: root.opened && root.currentTab === "nowplaying"
-                  barColors: [root.accentAlt, Qt.tint(root.accentAlt, Util.alpha(root.accent, 0.68)), root.accent]
+                  barColors: [root.accentAlt, root.detailAccent, root.volumeAccent, root.accent]
                   dimColor: root.muted
                 }
               }
@@ -1283,7 +1286,7 @@ Item {
           height: Style.space(96)
           baseColor: root.surface
           accent: root.accentAlt
-          secondaryAccent: root.accent
+          secondaryAccent: root.detailAccent
           themed: true
           litEdge: true
           emphasized: root.browseTarget === "player" && !root.sidebarCollapsed
@@ -1445,7 +1448,7 @@ Item {
                 foreground: root.foreground
                 muted: root.muted
                 accent: root.accent
-                accentAlt: root.accentAlt
+                accentAlt: root.detailAccent
               }
             }
 
@@ -1464,8 +1467,8 @@ Item {
               TransportButton {
                 controlSize: Style.space(29)
                 glyphText: volumeSlider.value <= 0.001 ? "󰝟" : "󰕾"
-                foreground: root.accentAlt
-                accent: root.accentAlt
+                foreground: root.volumeAccent
+                accent: root.volumeAccent
                 tooltipText: volumeSlider.value <= 0.001 ? "Unmute" : "Mute"
                 enabled: root.connected
                 onClicked: root.toggleMute()
@@ -1478,7 +1481,7 @@ Item {
                 trackHeight: Style.space(4)
                 knobSize: Style.space(12)
                 trackColor: Util.alpha(root.foreground, 0.16)
-                fillColor: root.accentAlt
+                fillColor: root.volumeAccent
                 knobColor: fillColor
                 minimum: 0
                 maximum: 1

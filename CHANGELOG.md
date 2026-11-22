@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.2
+
+- Soften the full-player album silhouette with lower opacity and a high-resolution blur made from the original cover.
+- Draw from up to seven album swatches for surfaces, text, stations, playback, volume, and visualizer accents. Limited-color covers keep their own shades.
+- Keep the outgoing cover behind the incoming one throughout the fade.
+- Center Orbit on a level ring and balance bass peaks and moving arcs across both sides.
+
 ## v0.5.1
 
 - Restore the current album cover as a soft, full-window silhouette behind the player, with smooth cover changes and readable controls in all three visualizers.

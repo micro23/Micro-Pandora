@@ -256,16 +256,26 @@ BarWidget {
 
     readonly property var artPalette: (root.pandora && root.pandora.artPalette) || ({})
     readonly property bool lightTheme: Commons.Color.background.hslLightness > 0.55
-    readonly property color foreground: artPalette.foreground || (lightTheme ? "#f4f4f6" : root.foreground)
-    readonly property color muted: artPalette.muted || Qt.tint(foreground, Qt.rgba(0, 0, 0, 0.27))
-    readonly property color accent: artPalette.accent
+    property color foreground: artPalette.foreground || (lightTheme ? "#f4f4f6" : root.foreground)
+    property color muted: artPalette.muted || Qt.tint(foreground, Qt.rgba(0, 0, 0, 0.27))
+    property color accent: artPalette.accent
       || (lightTheme ? Qt.tint(Commons.Color.accent, Qt.rgba(1, 1, 1, 0.55)) : Commons.Color.accent)
-    readonly property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
-    readonly property color surface: artPalette.background
+    property color accentAlt: artPalette.accentAlt || Qt.tint(accent, Util.alpha(foreground, 0.36))
+    property color volumeAccent: artPalette.volumeAccent || accentAlt
+    property color detailAccent: artPalette.detailAccent || accent
+    property color surface: artPalette.background
       ? Qt.tint(artPalette.background, Qt.rgba(0, 0, 0, 0.35))
       : lightTheme ? "#15171d" : Commons.Color.background
     readonly property bool connected: !!(root.pandora && root.pandora.connected)
     readonly property bool playing: !!(root.pandora && root.pandora.playing)
+
+    Behavior on surface { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on foreground { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on muted { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on accent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on accentAlt { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on volumeAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
+    Behavior on detailAccent { ColorAnimation { duration: Style.duration(240); easing.type: Easing.OutCubic } }
 
     borderSpec: Border.flat(Util.alpha(popup.accentAlt, 0.31), 1)
 
@@ -415,7 +425,7 @@ BarWidget {
               anchors.fill: parent
               anchors.margins: Style.space(3)
               requestedSource: root.popupOpen && root.pandora ? root.pandora.artUrl : ""
-              decodeSize: 192
+              decodeSize: 320
             }
 
             FallbackCover {
@@ -522,6 +532,7 @@ BarWidget {
         visible: popup.connected
         baseColor: popup.surface
         accent: popup.accentAlt
+        secondaryAccent: popup.detailAccent
         themed: true
 
         ColumnLayout {
@@ -541,7 +552,7 @@ BarWidget {
             foreground: popup.foreground
             muted: popup.muted
             accent: popup.accent
-            accentAlt: popup.accentAlt
+            accentAlt: popup.detailAccent
           }
 
           Row {
@@ -615,8 +626,8 @@ BarWidget {
               glyphText: miniVolume.value <= 0.001 ? "󰝟" : "󰕾"
               controlSize: Style.space(24)
               glyphSize: Style.font.icon
-              foreground: popup.accentAlt
-              accent: popup.accentAlt
+              foreground: popup.volumeAccent
+              accent: popup.volumeAccent
               enabled: popup.connected
               tooltipText: miniVolume.value <= 0.001 ? "Unmute" : "Mute"
               onClicked: root.toggleMute()
@@ -630,7 +641,7 @@ BarWidget {
               trackHeight: Style.space(4)
               knobSize: Style.space(12)
               trackColor: Util.alpha(popup.foreground, 0.16)
-              fillColor: popup.accentAlt
+              fillColor: popup.volumeAccent
               knobColor: fillColor
               minimum: 0
               maximum: 1

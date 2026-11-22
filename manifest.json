@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.dankestrick.omapandora",
   "name": "Micro-Pandora",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": "micro23, Dankestrick and contributors",
   "license": "MIT",
   "description": "Pandora for Omarchy, with album-themed players and a live audio spectrum.",
@@ -35,9 +35,9 @@
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "service": "qml-0.5.1/Service.qml",
-    "barWidget": "qml-0.5.1/BarWidget.qml",
-    "panel": "qml-0.5.1/Panel.qml"
+    "service": "qml-0.5.2/Service.qml",
+    "barWidget": "qml-0.5.2/BarWidget.qml",
+    "panel": "qml-0.5.2/Panel.qml"
   },
   "barWidget": {
     "displayName": "Micro-Pandora",

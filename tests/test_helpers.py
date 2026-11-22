@@ -22,6 +22,37 @@ loader.exec_module(pithosctl)
 
 
 class AlbumPaletteTests(unittest.TestCase):
+    def test_colorful_album_uses_seven_source_swatches_and_keeps_labels_readable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cover = Path(tmp) / "seven.png"
+            image = Image.new("RGB", (84, 84))
+            source = ["#dc3348", "#f6b329", "#64b83f", "#2396d0",
+                      "#7948b0", "#31414c", "#efe6d4"]
+            for index, value in enumerate(source):
+                image.paste(value, (index * 12, 0, (index + 1) * 12, 84))
+            image.save(cover)
+            palette = pithosctl.extract_art_palette(cover.as_uri())
+
+        raw = [(1008, tuple(bytes.fromhex(value[1:]))) for value in source]
+        accents, base, surface, text = pithosctl.choose_art_swatches(raw, raw[:5])
+        self.assertEqual(len(set([*accents, base, surface, text])), 7)
+        roles = ("accent", "accentAlt", "volumeAccent", "detailAccent")
+        self.assertEqual(len({palette[role] for role in roles}), len(roles))
+        surface_luminance = max(pithosctl.luminance(tuple(bytes.fromhex(palette[role][1:])))
+                                for role in ("background", "backgroundAlt"))
+        for role in (*roles, "foreground", "muted"):
+            ink = pithosctl.luminance(tuple(bytes.fromhex(palette[role][1:])))
+            self.assertGreaterEqual((ink + 0.05) / (surface_luminance + 0.05), 5.5, role)
+
+    def test_monochrome_art_keeps_its_neutral_palette(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cover = Path(tmp) / "gray.png"
+            Image.new("L", (20, 20), 235).save(cover)
+            palette = pithosctl.extract_art_palette(cover.as_uri())
+
+        self.assertTrue(all(len(set(bytes.fromhex(value[1:]))) == 1
+                            for value in palette.values()))
+
     def test_sparse_accent_colors_survive_a_white_cover(self):
         with tempfile.TemporaryDirectory() as tmp:
             cover = Path(tmp) / "cover with spaces.png"
@@ -45,6 +76,26 @@ class AlbumPaletteTests(unittest.TestCase):
         self.assertEqual(pithosctl.extract_art_palette("file:///nonexistent-pithos-test-cover.png"), {})
         self.assertEqual(pithosctl.extract_art_palette("https://example.invalid/cover.png"), {})
         self.assertEqual(pithosctl.extract_art_palette("file://elsewhere/cover.png"), {})
+
+    def test_backdrop_preserves_detail_in_the_source_at_display_resolution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "album with spaces.png"
+            image = Image.new("RGB", (1500, 1000), "#101d4b")
+            image.paste("#f09449", (600, 0, 1500, 1000))
+            image.save(source)
+            with patch.dict(os.environ, {"XDG_RUNTIME_DIR": tmp}):
+                url = pithosctl.cover_backdrop_url(source.as_uri())
+                self.assertTrue(url.startswith(Path(tmp).as_uri()))
+                self.assertEqual(pithosctl.cover_backdrop_url(source.as_uri()), url)
+                with Image.open(pithosctl.unquote(pithosctl.urlsplit(url).path)) as blurred:
+                    self.assertEqual(blurred.size, (960, 640))
+                    self.assertLess(blurred.getpixel((250, 320))[0], 30)
+                    self.assertGreater(blurred.getpixel((600, 320))[0], 220)
+                    transition = [blurred.getpixel((x, 320))[0] for x in (370, 380, 390, 400)]
+                    self.assertEqual(transition, sorted(set(transition)))
+                image.rotate(180).save(source)
+                self.assertNotEqual(pithosctl.cover_backdrop_url(source.as_uri()), url)
+                self.assertEqual(pithosctl.cover_backdrop_url("https://example.invalid/art"), "")
 
 
 class PlayerCommandTests(unittest.TestCase):
