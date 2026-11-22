@@ -1,0 +1,32 @@
+name: Publish Micro-Pandora 0.5.3
+on:
+  push:
+    branches: [release-v0.5.3]
+    paths: [.github/workflows/publish-v0.5.3.yml]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: 700cc0f9691090e709359c77f94c10e6546c5c8e
+    steps:
+      - name: Package and publish the verified commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git clone --no-checkout "https://github.com/$GH_REPO.git" source
+          test "$(git -C source show "$TARGET:manifest.json" | jq -r .version)" = 0.5.3
+          git -C source archive --format=tar --prefix=Micro-Pandora-0.5.3/ "$TARGET" | gzip -n > Micro-Pandora-0.5.3.tar.gz
+          sha256sum Micro-Pandora-0.5.3.tar.gz > SHA256SUMS
+          cat > notes.md <<'NOTES'
+          Keep the album silhouette visible across an Omarchy hot reload. The full player shows the original cover as a soft backdrop while the high-resolution blur becomes available.
+          
+          This release includes the expanded album palette, the softer backdrop, and the level Orbit visualizer with balanced motion.
+          
+          Right-click the music note to open the full player. Extract the archive and run `./scripts/setup.sh` to install.
+          NOTES
+          gh release create v0.5.3 Micro-Pandora-0.5.3.tar.gz SHA256SUMS --target "$TARGET" --title 'Micro-Pandora 0.5.3' --notes-file notes.md --latest
