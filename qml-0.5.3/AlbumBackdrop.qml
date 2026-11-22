@@ -9,7 +9,10 @@ Rectangle {
   required property color secondaryColor
   property string artSource: ""
   property string backdropSource: ""
+  property string unavailableBackdrop: ""
   property bool fullWindow: false
+  readonly property string silhouetteSource: backdropSource !== unavailableBackdrop
+    ? backdropSource || artSource : artSource
   readonly property bool silhouetteReady: !!(silhouette.item && silhouette.item.hasArtwork)
 
   Behavior on baseColor {
@@ -30,14 +33,17 @@ Rectangle {
   Loader {
     id: silhouette
     anchors.fill: parent
-    active: root.fullWindow && root.visible && root.backdropSource !== ""
+    active: root.fullWindow && root.visible && root.silhouetteSource !== ""
     sourceComponent: CoverTransition {
       // This image has already been filtered from the original local cover.
-      decodeSize: 960
+      decodeSize: root.silhouetteSource === root.backdropSource ? 960 : 56
       fillMode: Image.PreserveAspectCrop
       clip: true
       artworkOpacity: 0.43
-      requestedSource: root.backdropSource
+      requestedSource: root.silhouetteSource
+      onSourceFailed: function(source) {
+        if (source === root.backdropSource) root.unavailableBackdrop = source
+      }
     }
   }
 

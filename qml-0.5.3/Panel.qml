@@ -395,7 +395,12 @@ Item {
         fullWindow: true
         baseColor: root.surface
         secondaryColor: Qt.tint(root.surface, Util.alpha(root.alternateSurface, 0.52))
-        backdropSource: root.opened && root.service ? root.service.backdropUrl : ""
+        artSource: root.opened && root.service ? String(root.service.artUrl || "") : ""
+        // The running shell can retain an older keepLoaded Service after an
+        // upgrade. Its status already carries the new helper's backdrop URL.
+        backdropSource: root.opened && root.service
+          ? String(root.service.backdropUrl || (root.service.status && root.service.status.backdropUrl) || "")
+          : ""
       }
 
       Shortcut {

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.3
+
+- Keep the album silhouette visible when Omarchy still holds an older service in memory. Use the original cover until the high-resolution blur is available.
+
 ## v0.5.2
 
 - Soften the full-player album silhouette with lower opacity and a high-resolution blur made from the original cover.

@@ -169,7 +169,7 @@ ShellRoot {
         root.testedPanel = panel
         root.testedService = service
         var coverUrl = "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI") + "/../helpers/micro-pandora.png"
-        service.applyStatus({ connected: true, artUrl: coverUrl, backdropUrl: coverUrl })
+        service.applyStatus({ connected: true, artUrl: coverUrl })
         panel.chooseTab("nowplaying")
         coverCheck.start()
         return
@@ -185,10 +185,21 @@ ShellRoot {
     interval: 30
     repeat: true
     property int attempts: 0
+    property bool triedMissingDerivative: false
     onTriggered: {
       try {
         if (!root.testedBackdrop.silhouetteReady && ++attempts < 100) return
-        root.check(root.testedBackdrop.silhouetteReady, "local artwork becomes a full-window silhouette")
+        root.check(root.testedBackdrop.silhouetteReady,
+                   "the original cover becomes a silhouette before a processed image arrives")
+        if (!triedMissingDerivative) {
+          triedMissingDerivative = true
+          root.testedService.applyStatus({ connected: true, artUrl: root.testedService.artUrl,
+                                           backdropUrl: root.testedService.artUrl + ".missing" })
+          return
+        }
+        if (root.testedBackdrop.unavailableBackdrop === "" && ++attempts < 100) return
+        root.check(root.testedBackdrop.silhouetteSource === root.testedService.artUrl,
+                   "an unavailable processed image falls back to the original cover")
         root.testedPanel.toggleSidebar()
         for (var mode of [0, 1, 2]) {
           root.testedPanel.selectVisualizer(mode)
