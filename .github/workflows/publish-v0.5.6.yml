@@ -1,0 +1,30 @@
+name: Publish Micro-Pandora 0.5.6
+on:
+  push:
+    branches: [release-v0.5.6]
+    paths: [.github/workflows/publish-v0.5.6.yml]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: c2a16aa80a151bfa08f0269b88d17ee3e84ef208
+    steps:
+      - name: Package and publish the verified commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git clone --no-checkout "https://github.com/$GH_REPO.git" source
+          test "$(git -C source show "$TARGET:manifest.json" | jq -r .version)" = 0.5.6
+          git -C source archive --format=tar --prefix=Micro-Pandora-0.5.6/ "$TARGET" | gzip -n > Micro-Pandora-0.5.6.tar.gz
+          sha256sum Micro-Pandora-0.5.6.tar.gz > SHA256SUMS
+          cat > notes.md <<'NOTES'
+          Keep the album silhouette visible in the full player. The stage color wash fades away when cover art is ready, leaving the blurred cover behind the visualizer.
+          
+          Right-click the music note to open the full player. Extract the archive and run `./scripts/setup.sh` to install.
+          NOTES
+          gh release create v0.5.6 Micro-Pandora-0.5.6.tar.gz SHA256SUMS --target "$TARGET" --title 'Micro-Pandora 0.5.6' --notes-file notes.md --latest
