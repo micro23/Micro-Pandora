@@ -1,6 +1,6 @@
 # Micro-Pandora
 
-Micro-Pandora is a Pandora player for the Omarchy desktop. Open it from the launcher or use the mini player on the bar. Both players use the current album’s artwork and colors. Sign in from Micro-Pandora’s Settings and use Pithos as the playback backend.
+Micro-Pandora is a Pandora player for the Omarchy desktop. Open it from the launcher or use the mini player on the bar. The full player enlarges the current album cover into a soft backdrop behind the sharp artwork and live visualizer. Both players pick up the album’s colors. Sign in from Micro-Pandora’s Settings and use Pithos as the playback backend.
 
 ![Micro-Pandora full player with demo artwork and stations](docs/preview.webp)
 

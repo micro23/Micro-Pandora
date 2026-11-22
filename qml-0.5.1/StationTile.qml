@@ -9,6 +9,7 @@ Button {
   property bool playingStation: false
 
   Accessible.role: Accessible.Button
+  Accessible.selected: active
   Accessible.name: root.text
   Accessible.description: root.currentStation ? "Current station" : ""
   Accessible.onPressAction: if (root.enabled) root.clicked()
@@ -21,9 +22,9 @@ Button {
   iconSize: Style.font.body
   fontFamily: "Adwaita Sans"
   background: currentStation ? Util.alpha(accent, 0.16)
-    : selected ? Util.alpha(accent, 0.10) : "transparent"
+    : active ? Util.alpha(accent, 0.10) : "transparent"
   color: hot ? Util.alpha(accent, 0.20) : background
-  borderSpec: Border.flat(Util.alpha(accent, currentStation ? 0.25 : selected || bordered ? 0.18 : 0), 1)
+  borderSpec: Border.flat(Util.alpha(accent, currentStation ? 0.25 : active || bordered ? 0.18 : 0), 1)
   rightPadding: playingStation ? Style.space(24) : horizontalPadding
 
   Rectangle {

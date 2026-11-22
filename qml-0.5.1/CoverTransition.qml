@@ -7,6 +7,7 @@ Item {
   property string requestedSource: ""
   property bool active: visible
   property int decodeSize: 192
+  property int fillMode: Image.PreserveAspectFit
   property int displayIndex: -1
   property bool initialized: false
   readonly property bool hasArtwork: displayIndex >= 0
@@ -50,7 +51,8 @@ Item {
     active: root.active
     sourceSize.width: root.decodeSize
     sourceSize.height: root.decodeSize
-    fillMode: Image.PreserveAspectFit
+    fillMode: root.fillMode
+    smooth: true
     asynchronous: true
     opacity: root.displayIndex === bufferIndex ? 1 : 0
     z: root.displayIndex === bufferIndex ? 1 : 0

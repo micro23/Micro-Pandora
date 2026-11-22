@@ -64,10 +64,10 @@ BorderSurface {
         required property string modelData
 
         text: modelData
-        selected: index === root.current
+        active: index === root.current
         Accessible.role: Accessible.RadioButton
         Accessible.name: modelData + " visualizer"
-        Accessible.checked: selected
+        Accessible.checked: active
         Accessible.onPressAction: root.chosen(index)
         tooltipText: modelData + " visualizer · V to cycle"
         onClicked: root.chosen(index)
@@ -77,11 +77,11 @@ BorderSurface {
         radius: Style.space(8)
         horizontalPadding: Style.space(8)
         verticalPadding: 0
-        foreground: selected ? root.foreground : root.muted
+        foreground: active ? root.foreground : root.muted
         accent: root.accent
         fontFamily: "Adwaita Sans"
         fontSize: Style.font.bodySmall
-        color: hot && !selected ? Util.alpha(root.accent, 0.11) : "transparent"
+        color: hot && !active ? Util.alpha(root.accent, 0.11) : "transparent"
         borderSpec: Border.none()
       }
     }

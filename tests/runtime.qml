@@ -4,6 +4,9 @@ import qs.Commons
 
 ShellRoot {
   id: root
+  property var testedPanel
+  property var testedService
+  property var testedBackdrop
 
   function component(name) {
     var url = "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI") + "/" + name + ".qml"
@@ -110,6 +113,9 @@ ShellRoot {
         }
         root.check(content !== null, "full player window exists")
         var sidebar = root.findVisualChild(content, "stationSidebar")
+        root.testedBackdrop = root.findVisualChild(content, "windowAlbumBackdrop")
+        root.check(root.testedBackdrop && root.testedBackdrop.fullWindow
+                   && root.testedBackdrop.width === content.width, "the album backdrop fills the window")
         var sidebarToggle = root.findVisualChild(content, "stationSidebarToggle")
         root.check(sidebar && sidebarToggle && sidebar.width > 0, "station sidebar starts expanded")
         sidebarToggle.clicked()
@@ -143,13 +149,44 @@ ShellRoot {
         service.account.checked = true
         panel.open("{}")
         root.check(panel.currentTab === "setup", "a fresh install opens directly to setup")
-        panel.close()
-        panel.destroy()
-        service.destroy()
+        root.testedPanel = panel
+        root.testedService = service
+        service.applyStatus({ connected: true, artUrl: "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI")
+                              + "/../helpers/micro-pandora.png" })
+        panel.chooseTab("nowplaying")
+        coverCheck.start()
+        return
+      } catch (error) {
+        console.error("MICRO_PANDORA_RUNTIME_FAILURE " + error)
+      }
+      Qt.quit()
+    }
+  }
+
+  Timer {
+    id: coverCheck
+    interval: 30
+    repeat: true
+    property int attempts: 0
+    onTriggered: {
+      try {
+        if (!root.testedBackdrop.silhouetteReady && ++attempts < 100) return
+        root.check(root.testedBackdrop.silhouetteReady, "local artwork becomes a full-window silhouette")
+        root.testedPanel.toggleSidebar()
+        for (var mode of [0, 1, 2]) {
+          root.testedPanel.selectVisualizer(mode)
+          root.check(root.testedBackdrop.silhouetteReady, "sidebar and mode changes preserve the backdrop")
+        }
+        root.testedService.applyStatus({ connected: true, artUrl: "" })
+        root.check(!root.testedBackdrop.silhouetteReady, "missing artwork clears the previous cover")
+        root.testedPanel.close()
+        root.testedPanel.destroy()
+        root.testedService.destroy()
         console.log("MICRO_PANDORA_RUNTIME_OK")
       } catch (error) {
         console.error("MICRO_PANDORA_RUNTIME_FAILURE " + error)
       }
+      stop()
       Qt.quit()
     }
   }

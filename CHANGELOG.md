@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.1
+
+- Restore the current album cover as a soft, full-window silhouette behind the player, with smooth cover changes and readable controls in all three visualizers.
+- Keep the selected station and visualizer labels legible over different album palettes.
+
 ## v0.5.0
 
 - Rebuild the full and mini players around album-tinted surfaces, larger artwork, and a unified transport. Crossfade covers once the next image is ready.

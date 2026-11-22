@@ -383,8 +383,11 @@ Item {
       LayoutMirroring.childrenInherit: true
 
       AlbumBackdrop {
+        id: windowBackdrop
+        objectName: "windowAlbumBackdrop"
         anchors.fill: parent
         visible: root.opened
+        fullWindow: true
         baseColor: root.surface
         secondaryColor: Qt.tint(root.surface, Util.alpha(root.alternateSurface, 0.52))
         artSource: root.opened && root.service ? root.service.artUrl : ""
@@ -560,7 +563,7 @@ Item {
                   iconText: "󰍉"
                   foreground: root.muted
                   accent: root.accentAlt
-                  selected: root.currentTab === "stations"
+                  active: root.currentTab === "stations"
                   bordered: true
                   onClicked: root.focusSearch()
                 }
@@ -630,7 +633,7 @@ Item {
                             playingStation: currentStation && root.service.playing
                             foreground: currentStation ? root.accentAlt : root.foreground
                             accent: root.accentAlt
-                            selected: root.isPinnedCursor(index)
+                            active: root.isPinnedCursor(index)
                             currentStation: !!(pin && root.service && pin.path === root.service.stationPath)
                             onClicked: {
                               root.browseTarget = "nowplaying"
@@ -692,7 +695,7 @@ Item {
                         playingStation: currentStation && root.service.playing
                         foreground: currentStation ? root.accent : root.foreground
                         accent: root.accent
-                        selected: root.isCursor(modelData.path)
+                        active: root.isCursor(modelData.path)
                         currentStation: !!(root.service && modelData.path === root.service.stationPath)
                         onClicked: {
                           root.chooseTab("nowplaying")
@@ -712,7 +715,7 @@ Item {
                   iconText: "󰒓"
                   foreground: root.accentAlt
                   accent: root.accentAlt
-                  selected: root.currentTab === "setup"
+                  active: root.currentTab === "setup"
                   onClicked: root.chooseTab("setup")
                 }
               }
@@ -903,7 +906,10 @@ Item {
                   horizon: 0.69
                   mode: visualizer.modeIndex
                   cornerRadius: Style.space(16)
-                  opacity: 0.83
+                  opacity: windowBackdrop.silhouetteReady ? 0.22 : 0.83
+                  Behavior on opacity {
+                    NumberAnimation { duration: Style.duration(230); easing.type: Easing.OutCubic }
+                  }
                 }
 
                 Item {
@@ -1189,7 +1195,7 @@ Item {
                           iconText: "󰐹"
                           foreground: currentStation ? root.accent : root.foreground
                           accent: root.accent
-                          selected: searchResult.index === root.stationCursor
+                          active: searchResult.index === root.stationCursor
                           currentStation: !!(root.service && searchResult.modelData.path === root.service.stationPath)
                           playingStation: currentStation && root.service.playing
                           onClicked: root.playStation(searchResult.modelData.path)
