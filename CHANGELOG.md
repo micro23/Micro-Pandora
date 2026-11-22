@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.1
+
+- Register the launcher only during setup or on request in Settings. Keep customized launcher entries and migrate the original stock entry during registration.
+
 ## v0.6.0
 
 - Turn the visualizer off from the header or when cycling with V. Off gives the album artwork more space while music keeps playing.

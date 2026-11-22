@@ -7,13 +7,20 @@ applications="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 icon_directory="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/256x256/apps"
 
 install_launcher() {
-  mkdir -p "$applications"
-  if ! cmp -s "$directory/$desktop" "$applications/$desktop"; then
-    install -m 644 "$directory/$desktop" "$applications/$desktop"
+  local entry="$applications/$desktop"
+  local icon="$icon_directory/io.github.micro23.MicroPandora.png"
+  mkdir -p "$applications" "$icon_directory"
+
+  if [[ ! -e "$entry" && ! -L "$entry" ]]; then
+    install -m 644 "$directory/$desktop" "$entry"
+  elif [[ -f "$entry" && ! -L "$entry" ]] &&
+    cmp -s "$entry" <(sed 's/io\.github\.micro23\.micro-pandora\.player/io.github.dankestrick.omapandora.player/g' "$directory/$desktop"); then
+    # An exact match is the stock launcher from before the plugin ID changed.
+    install -m 644 "$directory/$desktop" "$entry"
   fi
-  mkdir -p "$icon_directory"
-  if ! cmp -s "$directory/micro-pandora.png" "$icon_directory/io.github.micro23.MicroPandora.png"; then
-    install -m 644 "$directory/micro-pandora.png" "$icon_directory/io.github.micro23.MicroPandora.png"
+
+  if [[ ! -e "$icon" && ! -L "$icon" ]]; then
+    install -m 644 "$directory/micro-pandora.png" "$icon"
   fi
 }
 

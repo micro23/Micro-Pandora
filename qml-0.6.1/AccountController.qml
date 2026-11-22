@@ -21,6 +21,7 @@ Item {
   readonly property bool ready: checked && missing.length === 0 && loaded
   readonly property bool busy: credentialWriter.running || connecting
   readonly property bool changingWindow: windowCommand.running
+  readonly property bool registeringLauncher: launcherCommand.running
 
   signal reconnectRequested()
 
@@ -79,9 +80,19 @@ Item {
   onSettingsOpenChanged: if (settingsOpen) refresh()
   onHasStationsChanged: checkConnection()
 
-  Component.onCompleted: {
-    Quickshell.execDetached([setupHelper, "--launcher"])
-    refresh()
+  Component.onCompleted: refresh()
+
+  function registerLauncher() {
+    launcherCommand.running = true
+  }
+
+  Process {
+    id: launcherCommand
+    command: ["timeout", "8", root.setupHelper, "--launcher"]
+    onExited: function(code) {
+      root.report(code === 0 ? "Micro-Pandora is available in the app launcher."
+                  : "Could not register the launcher. Check the data directory and try again.", code !== 0)
+    }
   }
 
   Timer {

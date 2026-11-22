@@ -77,8 +77,8 @@ Item {
 
   Process {
     id: process
-    stdout: StdioCollector { id: output }
-    stderr: StdioCollector { id: errors }
+    stdout: StdioCollector { id: output; waitForEnd: true }
+    stderr: StdioCollector { id: errors; waitForEnd: true }
     onExited: function(code) {
       var action = root.action
       root.action = ""

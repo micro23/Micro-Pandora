@@ -42,7 +42,9 @@ omarchy plugin add https://github.com/micro23/Micro-Pandora.git --enable
 ```
 
 That clones into `~/.config/omarchy/plugins/io.github.micro23.micro-pandora/`
-and puts the widget on the bar.
+and puts the widget on the bar. To register it in the launcher, open
+**Settings** in the player and choose **Add to app launcher** under
+**Playback backend**. Launcher registration preserves customized entries.
 
 ### From a git clone (local development)
 

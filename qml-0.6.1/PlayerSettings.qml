@@ -267,6 +267,15 @@ Flickable {
             onClicked: root.account.refresh()
           }
         }
+
+        Button {
+          text: "Add to app launcher"
+          enabled: !!root.account && !root.account.registeringLauncher
+          foreground: root.foreground
+          accent: root.accentAlt
+          focusable: true
+          onClicked: root.account.registerLauncher()
+        }
       }
     }
 

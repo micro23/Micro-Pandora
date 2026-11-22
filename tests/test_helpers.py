@@ -252,6 +252,26 @@ class LauncherTests(unittest.TestCase):
             icon = Path(tmp) / "icons/hicolor/256x256/apps/io.github.micro23.MicroPandora.png"
             self.assertTrue(icon.is_file())
 
+    def test_launcher_preserves_custom_entries_and_migrates_only_the_stock_legacy_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            env = {**os.environ, "XDG_DATA_HOME": tmp}
+            entry = data / "applications/io.github.micro23.MicroPandora.desktop"
+            entry.parent.mkdir()
+            stock = (ROOT / "helpers" / entry.name).read_text()
+            legacy = stock.replace("io.github.micro23.micro-pandora.player",
+                                   "io.github.dankestrick.omapandora.player")
+            customized = legacy.replace("Name=Micro-Pandora", "Name=My station launcher")
+            entry.write_text(customized)
+
+            arguments = [ROOT / "helpers/setup-deps", "--launcher"]
+            subprocess.run(arguments, env=env, check=True)
+            self.assertEqual(entry.read_text(), customized)
+
+            entry.write_text(legacy)
+            subprocess.run(arguments, env=env, check=True)
+            self.assertEqual(entry.read_text(), stock)
+
     def test_fresh_setup_installs_dependencies_before_enabling_the_app(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
