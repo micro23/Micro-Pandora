@@ -61,6 +61,7 @@ Item {
   readonly property string displayFamily: "Adwaita Sans"
   readonly property bool connected: service && service.connected
   readonly property var account: service && service.account ? service.account : null
+  readonly property var updater: service ? service.updater : null
   readonly property string playbackError: service ? service.commandError || service.statusError : ""
   readonly property var filteredStations: {
     var all = service && service.stations instanceof Array ? service.stations : []
@@ -723,8 +724,8 @@ Item {
                 StationTile {
                   Layout.fillWidth: true
                   Layout.preferredHeight: Style.space(32)
-                  text: "Settings"
-                  iconText: "󰒓"
+                  text: root.updater && root.updater.updateAvailable ? "Settings · Update available" : "Settings"
+                  iconText: root.updater && root.updater.updateAvailable ? "󰚰" : "󰒓"
                   foreground: root.accentAlt
                   accent: root.accentAlt
                   active: root.currentTab === "setup"
@@ -813,6 +814,7 @@ Item {
                 visible: root.currentTab === "nowplaying"
                 modes: visualizer.modeNames
                 current: visualizer.modeIndex
+                slotWidth: Style.space(pageHeader.width < Style.space(660) ? 57 : 74)
                 foreground: root.foreground
                 muted: root.muted
                 accent: root.accent
@@ -829,11 +831,11 @@ Item {
               }
 
               TransportButton {
-                glyphText: "󰒓"
+                glyphText: root.updater && root.updater.updateAvailable ? "󰚰" : "󰒓"
                 visible: root.sidebarCollapsed
                 foreground: root.muted
                 accent: root.accentAlt
-                tooltipText: "Pandora settings"
+                tooltipText: root.updater && root.updater.updateAvailable ? "Settings · Update available" : "Pandora settings"
                 onClicked: root.chooseTab(root.currentTab === "setup" ? "nowplaying" : "setup")
               }
 
@@ -932,7 +934,7 @@ Item {
                   anchors.bottom: parent.bottom
                   anchors.margins: Style.space(28)
                   anchors.topMargin: Style.space(30)
-                  anchors.bottomMargin: visualizer.centerHeight + Style.space(26)
+                  anchors.bottomMargin: (visualizer.visualizing ? visualizer.centerHeight : 0) + Style.space(26)
                   z: 1
 
                   GridLayout {
@@ -1121,6 +1123,7 @@ Item {
 
                 Visualizer {
                   id: visualizer
+                  objectName: "playerVisualizer"
                   anchors.fill: parent
                   anchors.margins: Style.space(15)
                   centerHeight: Math.round(parent.height * 0.23)
@@ -1247,6 +1250,7 @@ Item {
                 active: root.opened && root.currentTab === "setup"
                 sourceComponent: PlayerSettings {
                   account: root.account
+                  updater: root.updater
                   foreground: root.foreground
                   muted: root.muted
                   accent: root.accent

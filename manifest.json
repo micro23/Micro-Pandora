@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.micro23.micro-pandora",
   "name": "Micro-Pandora",
-  "version": "0.5.10",
+  "version": "0.6.0",
   "author": "micro23, Dankestrick and contributors",
   "license": "MIT",
   "description": "Play Pandora radio from the Omarchy bar or a full player with album-art colors, pinned stations, and three live visualizers.",
@@ -35,9 +35,9 @@
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "service": "qml-0.5.10/Service.qml",
-    "barWidget": "qml-0.5.10/BarWidget.qml",
-    "panel": "qml-0.5.10/Panel.qml"
+    "service": "qml-0.6.0/Service.qml",
+    "barWidget": "qml-0.6.0/BarWidget.qml",
+    "panel": "qml-0.6.0/Panel.qml"
   },
   "barWidget": {
     "displayName": "Micro-Pandora",

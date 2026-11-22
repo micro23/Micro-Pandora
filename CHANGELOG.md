@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.0
+
+- Turn the visualizer off from the header or when cycling with V. Off gives the album artwork more space while music keeps playing.
+- Give Orbit bass-driven ripples, tilting inner rings, counter-rotating satellites, and treble sparks.
+- Check for stable releases in Settings, get a desktop notification when one is available, and install it when you choose.
+
 ## v0.5.10
 
 - Give Micro-Pandora its own Omarchy plugin ID for marketplace installation. The upgrade guide covers existing bar widgets, shortcuts, and synced installs.

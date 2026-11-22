@@ -16,9 +16,10 @@ Item {
   property real protectedWidth: 0
   property int modeIndex: 0
   readonly property var linearTones: bandTones(false)
-  readonly property var modeNames: ["Spectrum", "Mirror", "Orbit"]
+  readonly property var modeNames: ["Spectrum", "Mirror", "Orbit", "Off"]
   readonly property string modeName: modeNames[modeIndex]
-  readonly property bool shouldCapture: active && playing
+  readonly property bool visualizing: modeIndex !== 3
+  readonly property bool shouldCapture: active && playing && visualizing
   property bool initialized: false
   property string monitor: ""
   property string captureError: ""
@@ -27,7 +28,7 @@ Item {
   property var displayLevels: blankLevels()
   property var peakLevels: blankLevels()
   property bool settling: false
-  readonly property bool animateLevels: active && playing && !Commons.Style.reduceMotion
+  readonly property bool animateLevels: shouldCapture && !Commons.Style.reduceMotion
   readonly property real canvasScale: Math.max(1, width / 1536, height / 864)
   readonly property real stageEnergy: {
     if (!animateLevels) return 0
@@ -231,7 +232,7 @@ Item {
     height: root.height / root.canvasScale
     scale: root.canvasScale
     transformOrigin: Item.TopLeft
-    visible: !(root.shouldCapture && root.captureError)
+    visible: root.visualizing && !(root.shouldCapture && root.captureError)
 
     readonly property real centerHeight: root.centerHeight / root.canvasScale
     function heightLimit(x, bandWidth) {

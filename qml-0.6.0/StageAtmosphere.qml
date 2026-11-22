@@ -85,6 +85,8 @@ Canvas {
     ctx.fillStyle = edgeLight
     ctx.fillRect(radius, 0, Math.max(0, width - radius * 2), 1)
 
+    if (mode === 3) return
+
     var y = height * horizon
     var grid = ctx.createLinearGradient(0, y, 0, height)
     grid.addColorStop(0, Commons.Util.alpha(secondary, 0))

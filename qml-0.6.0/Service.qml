@@ -28,6 +28,12 @@ Item {
   property bool daemonStartAttempted: false
   property bool accountRestarting: false
   readonly property alias account: accountController
+  readonly property alias updater: updateController
+
+  UpdateController {
+    id: updateController
+    currentVersion: root.manifest ? String(root.manifest.version || "") : ""
+  }
   property bool wanted: false
   property string displayMode: "full" // "full" or "mini"
   property alias stationSidebarCollapsed: viewPreferences.sidebarCollapsed

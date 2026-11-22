@@ -98,7 +98,7 @@ Next: [first-run.md](first-run.md)
 
 ## Upgrade from v0.5.9 or earlier
 
-Micro-Pandora v0.5.10 uses `io.github.micro23.micro-pandora`. To move an
+Starting with v0.5.10, Micro-Pandora uses `io.github.micro23.micro-pandora`. To move an
 existing Micro-Pandora installation from the former OmaPandora ID:
 
 1. Disable the old player with `omarchy plugin disable io.github.dankestrick.omapandora`.
@@ -115,3 +115,23 @@ existing Micro-Pandora installation from the former OmaPandora ID:
    longer use it.
 
 The new player reads the same pinned-station file and Pithos credentials.
+
+## App updates
+
+If your version has no **App updates** card, update it once to v0.6.0 or
+newer. For a copy installed with setup, extract the latest release and run
+`./scripts/setup.sh`. For a Git install already using the Micro-Pandora ID,
+run `omarchy plugin update io.github.micro23.micro-pandora`. Versions
+before v0.5.10 use the upgrade steps above.
+
+Open **Settings → App updates** and choose **Check for updates**. If
+a newer stable GitHub release is available, choose **Update** to install
+it. When automatic checks are on, the player checks on startup and every
+12 hours and sends a desktop notification for each newly available version.
+The player reloads after an update. Updates keep your Pithos credentials,
+station pins, and widget settings.
+
+The updater supports copies created with `scripts/setup.sh` and clean
+Git checkouts installed through `omarchy plugin add`. Updates to Git
+checkouts must fast-forward. Local edits in a Git checkout or in files
+managed by setup need to be set aside before the updater can replace them.

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import qs.Commons
 import qs.Commons as Commons
@@ -8,6 +9,7 @@ Flickable {
   id: root
 
   required property var account
+  property var updater: null
   required property color foreground
   required property color muted
   required property color accent
@@ -22,6 +24,7 @@ Flickable {
   contentWidth: width
   contentHeight: layout.implicitHeight + Style.space(36)
   boundsBehavior: Flickable.StopAtBounds
+  Controls.ScrollBar.vertical: Controls.ScrollBar { policy: Controls.ScrollBar.AsNeeded }
 
   function submit() {
     if (!formReady || busy || account.changingWindow) return
@@ -263,6 +266,96 @@ Flickable {
             focusable: true
             onClicked: root.account.refresh()
           }
+        }
+      }
+    }
+
+    DeckSurface {
+      objectName: "appUpdates"
+      visible: !!root.updater
+      Layout.columnSpan: layout.columns
+      Layout.fillWidth: true
+      Layout.preferredHeight: updates.implicitHeight + Style.space(42)
+      baseColor: root.formSurface
+      accent: root.accent
+      themed: true
+      emphasized: !!(root.updater && root.updater.updateAvailable)
+      radius: Style.space(15)
+
+      ColumnLayout {
+        id: updates
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: Style.space(21)
+        spacing: Style.space(10)
+
+        CardHeading {
+          Layout.fillWidth: true
+          title: "App updates"
+          symbol: "󰚰"
+          tone: root.accent
+        }
+
+        Text {
+          Layout.fillWidth: true
+          textFormat: Text.PlainText
+          text: root.updater && root.updater.currentVersion
+            ? "Installed version " + root.updater.currentVersion : ""
+          color: root.muted
+          font.family: root.displayFamily
+          font.pixelSize: Style.font.bodySmall
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: text !== ""
+          textFormat: Text.PlainText
+          text: root.updater ? root.updater.message : ""
+          color: root.updater && root.updater.failed ? Commons.Color.urgent : root.foreground
+          font.family: root.displayFamily
+          font.pixelSize: Style.font.body
+          wrapMode: Text.WordWrap
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Style.space(8)
+
+          Button {
+            text: "Check for updates"
+            enabled: !!(root.updater && root.updater.currentVersion && !root.updater.busy)
+            foreground: root.foreground
+            accent: root.accent
+            focusable: true
+            bordered: true
+            onClicked: root.updater.check()
+          }
+
+          Button {
+            visible: !!(root.updater && root.updater.updateAvailable)
+            enabled: visible && !root.updater.busy
+            text: "Update"
+            foreground: root.foreground
+            accent: root.accent
+            focusable: true
+            bordered: true
+            background: Util.alpha(root.accent, 0.17)
+            onClicked: root.updater.install()
+          }
+        }
+
+        Button {
+          text: root.updater && root.updater.automaticChecks
+            ? "Automatic checks on" : "Automatic checks off"
+          enabled: !!root.updater
+          foreground: root.muted
+          accent: root.accent
+          focusable: true
+          tooltipText: "Check GitHub for updates in the background"
+          Accessible.checkable: true
+          Accessible.checked: !!(root.updater && root.updater.automaticChecks)
+          onClicked: root.updater.automaticChecks = !root.updater.automaticChecks
         }
       }
     }

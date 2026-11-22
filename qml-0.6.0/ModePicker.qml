@@ -11,7 +11,7 @@ BorderSurface {
   required property color muted
   required property color accent
   readonly property real inset: Style.space(4)
-  readonly property real slotWidth: Style.space(74)
+  property real slotWidth: Style.space(74)
   readonly property real slotHeight: Style.space(29)
 
   signal chosen(int mode)
@@ -66,10 +66,10 @@ BorderSurface {
         text: modelData
         active: index === root.current
         Accessible.role: Accessible.RadioButton
-        Accessible.name: modelData + " visualizer"
+        Accessible.name: modelData === "Off" ? "Turn visualizer off" : modelData + " visualizer"
         Accessible.checked: active
         Accessible.onPressAction: root.chosen(index)
-        tooltipText: modelData + " visualizer · V to cycle"
+        tooltipText: Accessible.name + " · V to cycle"
         onClicked: root.chosen(index)
 
         width: root.slotWidth

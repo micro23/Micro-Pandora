@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Check for and install stable releases of this plugin."""
+
+import argparse
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tarfile
+import tempfile
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+PLUGIN_ID = "io.github.micro23.micro-pandora"
+REPOSITORY = "https://github.com/micro23/Micro-Pandora.git"
+API = "https://api.github.com/repos/micro23/Micro-Pandora"
+VERSION = re.compile(r"(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})")
+SHA = re.compile(r"[0-9a-f]{40}")
+MAX_METADATA = 128 * 1024
+MAX_PAYLOAD = 8 * 1024 * 1024
+
+
+class FixedOrigin(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        return None
+
+
+def get_metadata(path):
+    request = Request(API + path, headers={
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Micro-Pandora",
+    })
+    with build_opener(FixedOrigin()).open(request, timeout=8) as response:
+        data = response.read(MAX_METADATA + 1)
+    if len(data) > MAX_METADATA:
+        raise ValueError("GitHub release metadata is too large.")
+    return json.loads(data)
+
+
+def version_key(version):
+    match = VERSION.fullmatch(version) if isinstance(version, str) else None
+    if not match:
+        raise ValueError("Invalid release version.")
+    return tuple(map(int, match.groups()))
+
+
+def latest_version():
+    release = get_metadata("/releases/latest")
+    tag = release.get("tag_name", "")
+    if (release.get("draft") is not False or release.get("prerelease") is not False
+            or not isinstance(tag, str) or not tag.startswith("v")):
+        raise ValueError("GitHub did not return a stable release.")
+    version_key(tag[1:])
+    return tag[1:]
+
+
+def manifest_version(plugin):
+    manifest = json.loads((plugin / "manifest.json").read_text())
+    if manifest.get("id") != PLUGIN_ID:
+        raise ValueError("This directory does not contain Micro-Pandora.")
+    version = manifest["version"]
+    version_key(version)
+    return version
+
+
+def git(directory, *arguments, timeout=15):
+    return subprocess.check_output(
+        ["git", "-C", str(directory), "-c", "core.hooksPath=/dev/null", *arguments],
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        stderr=subprocess.DEVNULL, timeout=timeout,
+    )
+
+
+def stage_release(directory, commit, version, staging):
+    ui = f"qml-{version}"
+    archive = git(directory, "archive", commit, "manifest.json", "helpers", ui)
+    if len(archive) > MAX_PAYLOAD:
+        raise ValueError("Release files exceed the size limit.")
+    archive_path = staging / "release.tar"
+    archive_path.write_bytes(archive)
+    with tarfile.open(archive_path, "r") as payload:
+        files = payload.getmembers()
+        if any(not (item.isfile() or item.isdir()) for item in files):
+            raise ValueError("Release must contain only regular files and directories.")
+        payload.extractall(staging, members=files, filter="data")
+    if manifest_version(staging) != version:
+        raise ValueError("The release tag and plugin version do not match.")
+    subprocess.run(
+        ["omarchy", "plugin", "validate", str(staging)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15,
+    )
+
+
+def install_release(plugin, version):
+    config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    installed = config / "omarchy" / "plugins" / PLUGIN_ID
+    if installed.is_symlink() or plugin != installed.resolve():
+        raise ValueError("Install Micro-Pandora in Omarchy’s plugin directory before updating.")
+
+    version_key(version)
+    current = manifest_version(plugin)
+    if version_key(version) <= version_key(current):
+        raise ValueError("Micro-Pandora is already up to date.")
+    if version != latest_version():
+        raise ValueError("The latest release changed. Check for updates again.")
+    commit = get_metadata(f"/commits/v{version}").get("sha", "")
+    if not isinstance(commit, str) or not SHA.fullmatch(commit):
+        raise ValueError("GitHub did not return a release commit.")
+
+    with tempfile.TemporaryDirectory(prefix="micro-pandora-update-") as temp:
+        staging = Path(temp)
+        git(staging, "init", "-q")
+        git(staging, "fetch", "--quiet", "--no-tags", "--depth=1", REPOSITORY, commit, timeout=50)
+        stage_release(staging, commit, version, staging)
+        if (plugin / ".git").is_dir():
+            lock = os.open(plugin.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError as error:
+                    raise ValueError("Another plugin install or update is running.") from error
+                if git(plugin, "status", "--porcelain", "--untracked-files=all"):
+                    raise ValueError("The installed plugin has local changes. Keep or commit them before updating.")
+                if manifest_version(plugin) != current:
+                    raise ValueError("The installed version changed. Check for updates again.")
+                git(plugin, "fetch", "--quiet", "--no-tags", REPOSITORY, commit, timeout=50)
+                try:
+                    git(plugin, "merge", "--ff-only", "--no-overwrite-ignore", commit)
+                except subprocess.CalledProcessError as error:
+                    raise ValueError("The release cannot fast-forward the installed checkout.") from error
+            finally:
+                os.close(lock)
+        else:
+            result = subprocess.run(
+                [str(plugin / "helpers/install-copy"), str(staging), current],
+                capture_output=True, text=True,
+            )
+            if result.returncode:
+                raise ValueError("The installed plugin could not be safely replaced. Check for local changes.")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("action", choices=["check", "install"])
+    parser.add_argument("version", nargs="?")
+    args = parser.parse_args()
+    plugin = Path(__file__).resolve().parents[1]
+    try:
+        if args.action == "check":
+            print(latest_version(), flush=True)
+        else:
+            install_release(plugin, args.version or "")
+    except (OSError, ValueError, KeyError, AttributeError, TypeError,
+            subprocess.SubprocessError, tarfile.TarError) as error:
+        if type(error) is ValueError:
+            print(error, file=sys.stderr)
+        else:
+            print("Could not complete the update. Check your network connection or try again.", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

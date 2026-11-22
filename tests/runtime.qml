@@ -37,7 +37,7 @@ ShellRoot {
           width: 1600, height: 760, centerHeight: 250, protectedWidth: 700, active: false
         })
         root.check(visualizer.modeName === "Spectrum", "initial visualizer")
-        for (var name of ["Mirror", "Orbit", "Spectrum"]) {
+        for (var name of ["Mirror", "Orbit", "Off", "Spectrum"]) {
           visualizer.nextMode()
           root.check(visualizer.modeName === name, "visualizer cycles to " + name)
         }
@@ -87,6 +87,8 @@ ShellRoot {
           orbit.advance(0.016)
           peakLift = Math.max(peakLift, orbit.lift)
         }
+        root.check(orbit.beatStrength > 0.75 && Math.abs(orbit.orbitTilt) > 0.1,
+                   "bass hits launch a strong ripple and tilt the rings")
         root.check(orbit.phase > 0.5 && peakLift >= 0.5 && orbit.originY < floor - 13,
                    "Orbit turns and lifts on a bass hit")
         east = orbit.point(0.36, 1.2, -25)
@@ -147,7 +149,19 @@ ShellRoot {
         panel.selectVisualizer(2)
         root.check(service.visualizerMode === 2, "the picker records the chosen visualizer")
         panel.nextVisualizer()
-        root.check(service.visualizerMode === 0, "V cycles from Orbit back to Spectrum")
+        var panelVisualizer = root.findVisualChild(content, "playerVisualizer")
+        service.applyStatus(Object.assign(snapshot(), { connected: true, status: "Playing" }))
+        root.check(service.visualizerMode === 3 && !panelVisualizer.visualizing
+                   && !panelVisualizer.shouldCapture && panelVisualizer.stageEnergy === 0
+                   && service.playing && panelVisualizer.playing,
+                   "Off stops the visualizer and keeps Pandora playing")
+        panel.close()
+        panel.open("{}")
+        root.check(panelVisualizer.modeName === "Off", "Off survives reopening the player")
+        panel.nextVisualizer()
+        root.check(service.visualizerMode === 0 && panelVisualizer.shouldCapture,
+                   "V cycles from Off to Spectrum and resumes capture")
+        service.applyStatus(snapshot())
 
         panel.focusSearch()
         panel.stationFilter = "jazz"
@@ -157,10 +171,15 @@ ShellRoot {
         panel.closeSearch()
         root.check(panel.currentTab === "nowplaying", "search returns to now playing")
         var settings = root.component("PlayerSettings").createObject(null, {
-          account: service.account, foreground: "#eee", muted: "#ccc",
+          account: service.account, updater: service.updater, foreground: "#eee", muted: "#ccc",
           accent: "#8cf", accentAlt: "#fba", background: "#203243"
         })
         root.check(settings && !settings.formReady, "sign-in waits for dependency checks")
+        root.check(root.findVisualChild(settings, "appUpdates").visible, "Settings includes app updates")
+        root.check(service.updater.isNewer("0.10.0", "0.9.12")
+                   && !service.updater.isNewer("0.9.4", "0.9.12")
+                   && !service.updater.isNewer("0.10.0-beta", "0.9.12"),
+                   "update availability compares stable version numbers")
         settings.destroy()
         service.account.missing = ["pithos"]
         service.account.checked = true
@@ -202,7 +221,7 @@ ShellRoot {
                    && art.requestedSource === root.testedService.artUrl,
                    "the fallback keeps the original image visible with no fade")
         root.testedPanel.toggleSidebar()
-        for (var mode of [0, 1, 2]) {
+        for (var mode of [0, 1, 2, 3]) {
           root.testedPanel.selectVisualizer(mode)
           root.check(root.testedBackdrop.silhouetteReady, "sidebar and mode changes preserve the backdrop")
         }

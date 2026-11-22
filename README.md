@@ -6,7 +6,7 @@ Micro-Pandora is a Pandora player for the Omarchy desktop. Open it from the laun
 
 ## Install
 
-On a current Omarchy desktop, clone the repository and run setup:
+On a current Omarchy desktop, extract the [latest release](https://github.com/micro23/Micro-Pandora/releases/latest) and run `./scripts/setup.sh` from the extracted folder. You can also install from GitHub:
 
 ```bash
 git clone https://github.com/micro23/Micro-Pandora.git
@@ -29,7 +29,8 @@ Run `omarchy plugin remove io.github.micro23.micro-pandora` to remove the plugin
 - Pithos runs on a hidden workspace by default. **Settings → Show Pithos window** opens the native interface when you need it.
 - Select a station in the sidebar. Use the pin next to the station name to keep it in **My list**. Press **Ctrl+B** or click the sidebar icon beside **Now playing** to hide or show the station column.
 - The full player has play, pause, skip, volume, and mute controls. Progress is read-only because Pandora doesn’t offer seeking here.
-- Click **Spectrum**, **Mirror**, or **Orbit** in the header to switch directly. Press **V** to cycle through the three views.
+- Choose **Spectrum**, **Mirror**, **Orbit**, or **Off** in the header. Press **V** to cycle through all four. Pandora keeps playing in **Off** mode.
+- Open **Settings → App updates** to check for a release and install it when you’re ready. Background checks can be turned off there.
 
 See [installation](docs/install.md), [keyboard shortcuts](docs/keyboard.md), and [troubleshooting](docs/troubleshooting.md) for more.
 
