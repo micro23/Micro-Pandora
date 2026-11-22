@@ -21,6 +21,8 @@ Item {
   readonly property real outgoingOpacity: incomingOpacity < 1
     ? (artworkOpacity - incomingOpacity) / (1 - incomingOpacity) : 0
 
+  signal sourceFailed(string source)
+
   function finishBlend() {
     reveal.stop()
     previousIndex = -1
@@ -60,7 +62,9 @@ Item {
       if (holdUntilReplaced || Commons.Style.reduceMotion) finishBlend()
       else reveal.start()
     } else if (image.status === Image.Error) {
-      if (holdUntilReplaced) return
+      var failedSource = image.requestedSource
+      sourceFailed(failedSource)
+      if (holdUntilReplaced || requestedSource !== failedSource) return
       finishBlend()
       displayIndex = -1
     }

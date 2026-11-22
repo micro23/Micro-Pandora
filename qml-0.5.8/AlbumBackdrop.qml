@@ -8,7 +8,13 @@ Rectangle {
   required property color baseColor
   required property color secondaryColor
   property string artSource: ""
+  property string backdropSource: ""
+  property string failedBackdrop: ""
   property bool fullWindow: false
+  readonly property string silhouetteSource: backdropSource && backdropSource !== failedBackdrop
+    ? backdropSource : artSource
+
+  onBackdropSourceChanged: failedBackdrop = ""
   readonly property bool silhouetteReady: !!(silhouette.item && silhouette.item.hasArtwork)
 
   Behavior on baseColor {
@@ -28,18 +34,19 @@ Rectangle {
 
   Loader {
     id: silhouette
-    anchors.right: parent.right
-    anchors.rightMargin: Math.round(parent.width * 0.035)
-    anchors.verticalCenter: parent.verticalCenter
-    width: Math.round(Math.min(parent.width * 0.54, parent.height * 0.84))
-    height: width
+    anchors.fill: parent
     active: root.fullWindow && root.visible
     sourceComponent: CoverTransition {
       objectName: "fullWindowCoverArt"
-      decodeSize: 1600
-      artworkOpacity: 0.34
+      decodeSize: 960
+      fillMode: Image.PreserveAspectCrop
+      clip: true
+      artworkOpacity: 0.53
       holdUntilReplaced: true
-      requestedSource: root.artSource
+      requestedSource: root.silhouetteSource
+      onSourceFailed: function(source) {
+        if (source === root.backdropSource) root.failedBackdrop = source
+      }
     }
   }
 

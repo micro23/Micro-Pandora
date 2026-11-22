@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.8
+
+- Restore the full-window, softened album backdrop. Keep it visible until the next cover is ready.
+
 ## v0.5.7
 
 - Fit the whole original cover into the full-player backdrop and hold it in place until the next cover is ready.

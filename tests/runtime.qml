@@ -194,12 +194,13 @@ ShellRoot {
         root.check(stage && stage.artworkVisible && stage.lighting === 0,
                    "the stage does not paint a color wash over the loaded album silhouette")
         var art = root.findVisualChild(root.testedBackdrop, "fullWindowCoverArt")
-        root.check(art && art.fillMode === Image.PreserveAspectFit
-                   && art.decodeSize >= 1440 && art.width < root.testedBackdrop.height,
-                   "the full cover fits at high resolution without filling and cropping the window")
+        root.check(art && art.fillMode === Image.PreserveAspectCrop
+                   && art.clip && art.width === root.testedBackdrop.width
+                   && art.height === root.testedBackdrop.height,
+                   "the album silhouette fills the full player without a visible image edge")
         root.check(art.holdUntilReplaced && art.blend === 1
                    && art.requestedSource === root.testedService.artUrl,
-                   "the backdrop uses the original image with no fade")
+                   "the fallback keeps the original image visible with no fade")
         root.testedPanel.toggleSidebar()
         for (var mode of [0, 1, 2]) {
           root.testedPanel.selectVisualizer(mode)
