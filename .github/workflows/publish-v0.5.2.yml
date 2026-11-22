@@ -1,0 +1,35 @@
+name: Publish Micro-Pandora 0.5.2
+on:
+  push:
+    branches: [release-v0.5.2]
+    paths: [.github/workflows/publish-v0.5.2.yml]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: ffd6ac1fab7d6d7b6ee3bc30a73e4e265ec520e6
+    steps:
+      - name: Package and publish the verified commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git clone --no-checkout "https://github.com/$GH_REPO.git" source
+          test "$(git -C source show "$TARGET:manifest.json" | jq -r .version)" = 0.5.2
+          git -C source archive --format=tar --prefix=Micro-Pandora-0.5.2/ "$TARGET" | gzip -n > Micro-Pandora-0.5.2.tar.gz
+          sha256sum Micro-Pandora-0.5.2.tar.gz > SHA256SUMS
+          cat > notes.md <<'NOTES'
+          - Soften the album silhouette using a high-resolution blur from the original Pithos cover and a lower opacity.
+          - Use up to seven album swatches to theme the stage, stations, track progress, volume, and all three visualizers.
+          - Crossfade covers smoothly without a brightness jump.
+          - Keep Orbit level and center its bass peaks and moving arcs.
+          
+          Right-click the music note for the full player. Use **Stations** or **Ctrl+B** to hide or restore the sidebar.
+          
+          Extract the archive and run `./scripts/setup.sh` to install. Verify the download with `sha256sum -c SHA256SUMS`.
+          NOTES
+          gh release create v0.5.2 Micro-Pandora-0.5.2.tar.gz SHA256SUMS --target "$TARGET" --title 'Micro-Pandora 0.5.2' --notes-file notes.md --latest
