@@ -39,7 +39,7 @@ Rectangle {
       decodeSize: root.silhouetteSource === root.backdropSource ? 960 : 56
       fillMode: Image.PreserveAspectCrop
       clip: true
-      artworkOpacity: 0.43
+      artworkOpacity: 0.53
       requestedSource: root.silhouetteSource
       onSourceFailed: function(source) {
         if (source === root.backdropSource) root.unavailableBackdrop = source
@@ -103,8 +103,8 @@ Rectangle {
     radius: root.radius
     gradient: Gradient {
       GradientStop { position: 0; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.52 : 0.24) }
-      GradientStop { position: 0.36; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.25 : 0.08) }
-      GradientStop { position: 0.73; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.44 : 0.33) }
+      GradientStop { position: 0.36; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.19 : 0.08) }
+      GradientStop { position: 0.73; color: Qt.rgba(0, 0, 0, root.fullWindow ? 0.31 : 0.33) }
       GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.72) }
     }
   }

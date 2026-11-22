@@ -4,9 +4,9 @@ Micro-Pandora is a Quickshell plugin with three entry points (`manifest.json`):
 
 | Kind | File | Role |
 | --- | --- | --- |
-| Service | `qml-0.5.5/Service.qml` | Talks to Pithos, cava helper, pins |
-| Bar widget | `qml-0.5.5/BarWidget.qml` | Music-note icon on the Omarchy bar |
-| Panel | `qml-0.5.5/Panel.qml` | Large floating player |
+| Service | `qml-0.5.6/Service.qml` | Talks to Pithos, cava helper, pins |
+| Bar widget | `qml-0.5.6/BarWidget.qml` | Music-note icon on the Omarchy bar |
+| Panel | `qml-0.5.6/Panel.qml` | Large floating player |
 
 ## Bar
 

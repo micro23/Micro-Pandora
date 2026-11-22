@@ -14,17 +14,17 @@ Micro-Pandora/
 ├── CHANGELOG.md           Version notes.
 ├── LAYOUT.md              This map.
 │
-├── qml-0.5.5/                   All Quickshell UI and the keepLoaded service.
+├── qml-0.5.6/                   All Quickshell UI and the keepLoaded service.
 │   ├── BarWidget.qml      Bar icon + mini player. Manifest barWidget.
 │   ├── Panel.qml          Full floating player. Manifest panel.
 │   ├── Service.qml        Pithos / MPRIS / pins. Manifest service.
-│   ├── Api.js             Shared helpers. Import as "Api.js" from qml-0.5.5/.
+│   ├── Api.js             Shared helpers. Import as "Api.js" from qml-0.5.6/.
 │   ├── Visualizer.qml     Cava input and Spectrum, Mirror, and Orbit selection.
 │   ├── TransportButton.qml
 │   ├── PlaybackSlider.qml
 │   └── ArtImage.qml       Album art (local files from Pithos only).
 │
-├── helpers/               Programs QML launches. Do not put these in qml-0.5.5/.
+├── helpers/               Programs QML launches. Do not put these in qml-0.5.6/.
 │   ├── pithosctl          Python: MPRIS, launch, quit, pin save.
 │   ├── cava-run           Pulse sink-monitor wrapper for cava.
 │   └── cava.conf          Reference config. cava-run pipes its own; no file.
@@ -42,7 +42,7 @@ Micro-Pandora/
 │   └── screenshots/       PNG files. kebab-case names, no spaces.
 │
 └── scripts/               Local tools. Not loaded by Omarchy.
-    ├── install.sh         Copy qml-0.5.5/ + helpers/ + manifest into the live plugin dir.
+    ├── install.sh         Copy qml-0.5.6/ + helpers/ + manifest into the live plugin dir.
     ├── uninstall.sh       omarchy plugin remove.
     └── validate.sh        omarchy plugin validate + qmllint.
 ```
@@ -53,8 +53,8 @@ The QML directory matches the release version in `manifest.json`. A new path let
 
 | You are adding… | Put it in |
 | --- | --- |
-| Bar, panel, or service QML | `qml-0.5.5/` |
-| A reusable QML control used by Panel/Bar | `qml-0.5.5/` (same folder so types resolve) |
+| Bar, panel, or service QML | `qml-0.5.6/` |
+| A reusable QML control used by Panel/Bar | `qml-0.5.6/` (same folder so types resolve) |
 | A script the UI execs (`pithosctl`, cava) | `helpers/` |
 | A user-facing guide | `docs/<topic>.md` |
 | A screenshot | `docs/screenshots/<name>.png` |

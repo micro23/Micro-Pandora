@@ -8,7 +8,8 @@ Canvas {
   required property color primary
   required property color secondary
   property color bounceLight: secondary
-  property real washOpacity: 0.83
+  property bool artworkVisible: false
+  property real lighting: artworkVisible ? 0 : 1
   property real horizon: 0.80
   property int mode: 0
   property real cornerRadius: 0
@@ -17,7 +18,7 @@ Canvas {
   onPrimaryChanged: requestPaint()
   onSecondaryChanged: requestPaint()
   onBounceLightChanged: requestPaint()
-  onWashOpacityChanged: requestPaint()
+  onLightingChanged: requestPaint()
   onHorizonChanged: requestPaint()
   onModeChanged: requestPaint()
   onCornerRadiusChanged: requestPaint()
@@ -25,7 +26,7 @@ Canvas {
   onHeightChanged: requestPaint()
   onVisibleChanged: if (visible) requestPaint()
 
-  Behavior on washOpacity {
+  Behavior on lighting {
     NumberAnimation { duration: Commons.Style.duration(245); easing.type: Easing.OutCubic }
   }
 
@@ -63,15 +64,17 @@ Canvas {
     wash.addColorStop(0, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.48)))
     wash.addColorStop(0.52, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.72)))
     wash.addColorStop(1, Qt.tint(baseColor, Qt.rgba(0, 0, 0, 0.85)))
-    ctx.globalAlpha = washOpacity
+    // Fade out the synthetic color field once there is a real cover
+    // behind the stage. Edge lighting and the visualizer grid stay readable.
+    ctx.globalAlpha = lighting * 0.83
     ctx.fillStyle = wash
     ctx.fillRect(0, 0, width, height)
     ctx.globalAlpha = 1
 
-    light(ctx, width * 0.13, height * 0.24, width * 0.55, secondary, 0.16)
-    light(ctx, width * 0.87, height * 0.32, width * 0.57, primary, 0.20)
+    light(ctx, width * 0.13, height * 0.24, width * 0.55, secondary, 0.16 * lighting)
+    light(ctx, width * 0.87, height * 0.32, width * 0.57, primary, 0.20 * lighting)
     light(ctx, width * 0.50, height * 0.89, width * 0.48, bounceLight,
-      mode === 2 ? 0.12 : 0.085)
+      (mode === 2 ? 0.12 : 0.085) * lighting)
 
     var edgeLight = ctx.createLinearGradient(0, 0, width, 0)
     edgeLight.addColorStop(0, Commons.Util.alpha(secondary, 0))

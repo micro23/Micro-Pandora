@@ -910,13 +910,14 @@ Item {
                   root.sidebarCollapsed || root.browseTarget !== "player" ? 0.21 : 0.43), 1)
 
                 StageAtmosphere {
+                  objectName: "stageAtmosphere"
                   anchors.fill: parent
                   anchors.margins: Style.space(2)
                   baseColor: root.background
                   primary: root.accent
                   secondary: root.accentAlt
                   bounceLight: root.artAccent
-                  washOpacity: windowBackdrop.silhouetteReady ? 0.35 : 0.83
+                  artworkVisible: windowBackdrop.silhouetteReady
                   horizon: 0.69
                   mode: visualizer.modeIndex
                   cornerRadius: Style.space(16)

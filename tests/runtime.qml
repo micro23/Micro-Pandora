@@ -191,6 +191,9 @@ ShellRoot {
         if (!root.testedBackdrop.silhouetteReady && ++attempts < 100) return
         root.check(root.testedBackdrop.silhouetteReady,
                    "the original cover becomes a silhouette before a processed image arrives")
+        var stage = root.findVisualChild(root.testedBackdrop.parent, "stageAtmosphere")
+        root.check(stage && stage.artworkVisible && stage.lighting === 0,
+                   "the stage does not paint a color wash over the loaded album silhouette")
         if (!triedMissingDerivative) {
           triedMissingDerivative = true
           root.testedService.applyStatus({ connected: true, artUrl: root.testedService.artUrl,

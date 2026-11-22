@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.6
+
+- Let the full-player album silhouette show through by fading the stage color wash away when the cover loads.
+
 ## v0.5.5
 
 - Rank album hues by their visible area so the dominant color leads the stage and main controls.
