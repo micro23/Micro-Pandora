@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.9
+
+- Lighten the full-player backdrop blur so contours in the album artwork read more clearly.
+
 ## v0.5.8
 
 - Restore the full-window, softened album backdrop. Keep it visible until the next cover is ready.

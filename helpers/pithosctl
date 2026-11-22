@@ -363,7 +363,7 @@ def cover_backdrop_url(url):
             return ""
         # The Pithos cache keeps the original download. Key our derivative by
         # the file identity so a replaced cover gets the right blur next poll.
-        signature = f"v1:{source}:{source_stat.st_dev}:{source_stat.st_ino}:{source_stat.st_mtime_ns}:{source_stat.st_size}"
+        signature = f"v2:{source}:{source_stat.st_dev}:{source_stat.st_ino}:{source_stat.st_mtime_ns}:{source_stat.st_size}"
         key = hashlib.sha256(os.fsencode(signature)).hexdigest()
         target = cache / (key + ".jpg")
         if target.is_file():
@@ -374,7 +374,7 @@ def cover_backdrop_url(url):
             if min(upright.size) < 1 or max(upright.size) / min(upright.size) > 8:
                 return ""
             backdrop = ImageOps.contain(upright.convert("RGB"), (960, 960), Image.Resampling.LANCZOS)
-            backdrop = backdrop.filter(ImageFilter.GaussianBlur(min(backdrop.size) * 0.024))
+            backdrop = backdrop.filter(ImageFilter.GaussianBlur(min(backdrop.size) * 0.016))
         with tempfile.NamedTemporaryFile(dir=cache) as temporary:
             backdrop.save(temporary, "JPEG", quality=88, optimize=True)
             temporary.flush()
