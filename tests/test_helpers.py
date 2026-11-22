@@ -289,9 +289,9 @@ printf '%s\n' "$*" >> "$MICRO_SETUP_QA/events"
                 "pkg add cava python-pillow python-gobject libsecret",
                 "pkg aur add pithos",
                 "shell rescanPlugins",
-                "plugin enable io.github.dankestrick.omapandora",
+                "plugin enable io.github.micro23.micro-pandora",
             ])
-            plugin = root / "config/omarchy/plugins/io.github.dankestrick.omapandora"
+            plugin = root / "config/omarchy/plugins/io.github.micro23.micro-pandora"
             manifest = json.loads((plugin / "manifest.json").read_text())
             ui = Path(manifest["entryPoints"]["panel"]).parent
             self.assertTrue((plugin / ui / "PlayerSettings.qml").exists())

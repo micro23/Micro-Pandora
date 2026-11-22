@@ -8,10 +8,10 @@ import "Api.js" as Api
 
 BarWidget {
   id: root
-  moduleName: "io.github.dankestrick.omapandora"
+  moduleName: "io.github.micro23.micro-pandora"
 
   readonly property var pandora: bar && bar.shell
-    ? bar.shell.serviceFor("io.github.dankestrick.omapandora") : null
+    ? bar.shell.serviceFor(moduleName) : null
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
   readonly property color muted: Commons.Color.muted
   readonly property string displayFamily: "Adwaita Sans"

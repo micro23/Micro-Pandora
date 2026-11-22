@@ -27,7 +27,7 @@ cannot be identified, the visualizer uses your default output. Start playback
 and check the selected monitor:
 
 ```bash
-~/.config/omarchy/plugins/io.github.dankestrick.omapandora/helpers/cava-run --monitor
+~/.config/omarchy/plugins/io.github.micro23.micro-pandora/helpers/cava-run --monitor
 pgrep -a cava
 ```
 

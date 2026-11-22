@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.10
+
+- Give Micro-Pandora its own Omarchy plugin ID for marketplace installation. The upgrade guide covers existing bar widgets, shortcuts, and synced installs.
+
 ## v0.5.9
 
 - Lighten the full-player backdrop blur so contours in the album artwork read more clearly.

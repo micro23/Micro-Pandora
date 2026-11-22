@@ -14,7 +14,7 @@ Declared in `manifest.json` as well.
 
 ## Install
 
-Run `./scripts/setup.sh` from an extracted release to install the missing packages and register Micro-Pandora in the launcher. To install packages manually:
+Run `./scripts/setup.sh` from a current checkout to install the missing packages and register Micro-Pandora in the launcher. To install packages manually:
 
 ```bash
 omarchy pkg add cava python-pillow python-gobject libsecret

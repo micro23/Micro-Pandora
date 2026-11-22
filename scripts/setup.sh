@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-id=io.github.dankestrick.omapandora
+id=io.github.micro23.micro-pandora
 plugin="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/$id"
 
 "$root/scripts/validate.sh"

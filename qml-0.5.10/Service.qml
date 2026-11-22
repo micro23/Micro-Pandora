@@ -51,7 +51,7 @@ Item {
     : ""
 
   readonly property string pluginId: manifest && manifest.id
-    ? String(manifest.id) : "io.github.dankestrick.omapandora"
+    ? String(manifest.id) : "io.github.micro23.micro-pandora"
   readonly property string helper: Api.helperPath(Qt.resolvedUrl("../helpers/pithosctl"))
   readonly property var players: Mpris.players ? Mpris.players.values : []
   readonly property var pithosPlayer: findPithosPlayer()

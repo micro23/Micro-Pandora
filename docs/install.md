@@ -13,7 +13,7 @@ omarchy plugin list
 
 ## 2. Dependencies
 
-For a fresh installation, extract the [release archive](https://github.com/micro23/Micro-Pandora/releases) and run `./scripts/setup.sh`. That command installs missing dependencies, installs the plugin, and adds Micro-Pandora to the app launcher. For manual package installation:
+For a guided installation, clone [Micro-Pandora](https://github.com/micro23/Micro-Pandora) and run `./scripts/setup.sh`. That command installs missing dependencies, installs the plugin, and adds Micro-Pandora to the app launcher. For manual package installation:
 
 ```bash
 omarchy pkg add cava python-pillow python-gobject libsecret
@@ -41,7 +41,7 @@ Details: [dependencies.md](dependencies.md)
 omarchy plugin add https://github.com/micro23/Micro-Pandora.git --enable
 ```
 
-That clones into `~/.config/omarchy/plugins/io.github.dankestrick.omapandora/`
+That clones into `~/.config/omarchy/plugins/io.github.micro23.micro-pandora/`
 and puts the widget on the bar.
 
 ### From a git clone (local development)
@@ -50,7 +50,7 @@ and puts the widget on the bar.
 git clone https://github.com/micro23/Micro-Pandora.git
 cd Micro-Pandora
 ./scripts/install.sh
-omarchy plugin enable io.github.dankestrick.omapandora left
+omarchy plugin enable io.github.micro23.micro-pandora left
 omarchy restart shell
 ```
 
@@ -62,7 +62,7 @@ exactly what it put there. The `.omapandora-dev-install` marker lists each
 installed file with its SHA-256. If the folder has a file that is not on that
 list, a listed file was changed, or you installed from GitHub first, it stops
 without touching the folder and lists what it found. Move your files out, or run
-`omarchy plugin remove io.github.dankestrick.omapandora`, then `install.sh`.
+`omarchy plugin remove io.github.micro23.micro-pandora`, then `install.sh`.
 
 ## 4. Optional window rules
 
@@ -95,3 +95,23 @@ hyprctl reload
 4. **Show Pithos window** is available in Settings if you need Pithos’s native interface.
 
 Next: [first-run.md](first-run.md)
+
+## Upgrade from v0.5.9 or earlier
+
+Micro-Pandora v0.5.10 uses `io.github.micro23.micro-pandora`. To move an
+existing Micro-Pandora installation from the former OmaPandora ID:
+
+1. Disable the old player with `omarchy plugin disable io.github.dankestrick.omapandora`.
+2. Clone the current Micro-Pandora repository (or update your existing
+   checkout) and run `./scripts/setup.sh`. This enables the new ID and
+   updates the launcher entry.
+3. If you customized the old bar widget, reapply those settings to the new
+   widget. In custom shortcuts for Micro-Pandora, replace
+   `io.github.dankestrick.omapandora` with `io.github.micro23.micro-pandora`.
+   For Omarchy Config Sync, sync the new plugin and updated bindings from
+   the upgraded device, then apply them on the other devices.
+4. Once you have verified the new player, remove the old plugin with
+   `omarchy plugin remove io.github.dankestrick.omapandora` if you no
+   longer use it.
+
+The new player reads the same pinned-station file and Pithos credentials.

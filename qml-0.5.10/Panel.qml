@@ -30,7 +30,7 @@ Item {
   property bool movingScreen: false
 
   readonly property string pluginId: manifest && manifest.id
-    ? String(manifest.id) : "io.github.dankestrick.omapandora"
+    ? String(manifest.id) : "io.github.micro23.micro-pandora"
   readonly property var artPalette: (service && service.artPalette) || ({})
   readonly property bool lightTheme: Commons.Color.background.hslLightness > 0.55
   property color foreground: artPalette.foreground

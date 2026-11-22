@@ -2,7 +2,7 @@
 Type=Application
 Name=Micro-Pandora
 Comment=Listen to Pandora and browse your stations
-Exec=omarchy-shell io.github.dankestrick.omapandora.player openFromLauncher
+Exec=omarchy-shell io.github.micro23.micro-pandora.player openFromLauncher
 TryExec=omarchy-shell
 Icon=io.github.micro23.MicroPandora
 Terminal=false
@@ -12,4 +12,4 @@ Actions=Settings;
 
 [Desktop Action Settings]
 Name=Settings
-Exec=omarchy-shell io.github.dankestrick.omapandora.player openSettings
+Exec=omarchy-shell io.github.micro23.micro-pandora.player openSettings

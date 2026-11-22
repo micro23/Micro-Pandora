@@ -8,10 +8,10 @@
 # that list, or a listed file was changed, it stops and changes nothing.
 # A folder from `omarchy plugin add` (a git checkout) or anything else is
 # left alone; remove it first with
-# `omarchy plugin remove io.github.dankestrick.omapandora`.
+# `omarchy plugin remove io.github.micro23.micro-pandora`.
 set -euo pipefail
 
-ID="io.github.dankestrick.omapandora"
+ID="io.github.micro23.micro-pandora"
 MARKER=".omapandora-dev-install"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 UI="$(dirname "$(jq -er '.entryPoints.panel' "$ROOT/manifest.json")")"
