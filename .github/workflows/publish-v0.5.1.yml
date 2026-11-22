@@ -1,0 +1,34 @@
+name: Publish Micro-Pandora 0.5.1
+on:
+  push:
+    branches: [release-v0.5.1]
+    paths: [.github/workflows/publish-v0.5.1.yml]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: 367c4b1d19a3a1230f7c1b50dfc971d83308f2af
+    steps:
+      - name: Package and publish the reviewed commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git clone --no-checkout "https://github.com/$GH_REPO.git" source
+          test "$(git -C source show "$TARGET:manifest.json" | jq -r .version)" = 0.5.1
+          git -C source archive --format=tar --prefix=Micro-Pandora-0.5.1/ "$TARGET" | gzip -n > Micro-Pandora-0.5.1.tar.gz
+          sha256sum Micro-Pandora-0.5.1.tar.gz > SHA256SUMS
+          cat > notes.md <<'NOTES'
+          The full player once again uses the current album cover as a soft, full-window backdrop. The foreground cover stays sharp, and the selected station and visualizer use the album palette for readable labels.
+
+          Orbit rotates and bounces on bass hits, with counter-rotating arcs and expanding pulses. Spectrum and Mirror have new peaks, ribbons, and reflections. Both players have updated controls and cover transitions.
+
+          Right-click the music note for the full player. Use Stations or Ctrl+B to hide or restore the sidebar. The player remembers the sidebar and visualizer. Versioned entry points refresh both launch paths after installation.
+
+          Extract the archive and run `./scripts/setup.sh` to install. Verify the download with `sha256sum -c SHA256SUMS`.
+          NOTES
+          gh release create v0.5.1 Micro-Pandora-0.5.1.tar.gz SHA256SUMS --target "$TARGET" --title 'Micro-Pandora 0.5.1' --notes-file notes.md --latest
