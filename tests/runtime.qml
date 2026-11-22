@@ -185,32 +185,31 @@ ShellRoot {
     interval: 30
     repeat: true
     property int attempts: 0
-    property bool triedMissingDerivative: false
     onTriggered: {
       try {
         if (!root.testedBackdrop.silhouetteReady && ++attempts < 100) return
         root.check(root.testedBackdrop.silhouetteReady,
-                   "the original cover becomes a silhouette before a processed image arrives")
+                   "the original cover becomes a silhouette")
         var stage = root.findVisualChild(root.testedBackdrop.parent, "stageAtmosphere")
         root.check(stage && stage.artworkVisible && stage.lighting === 0,
                    "the stage does not paint a color wash over the loaded album silhouette")
-        if (!triedMissingDerivative) {
-          triedMissingDerivative = true
-          root.testedService.applyStatus({ connected: true, artUrl: root.testedService.artUrl,
-                                           backdropUrl: root.testedService.artUrl + ".missing" })
-          return
-        }
-        if (root.testedBackdrop.unavailableBackdrop === "" && ++attempts < 100) return
-        root.check(root.testedBackdrop.silhouetteSource === root.testedService.artUrl,
-                   "an unavailable processed image falls back to the original cover")
+        var art = root.findVisualChild(root.testedBackdrop, "fullWindowCoverArt")
+        root.check(art && art.fillMode === Image.PreserveAspectFit
+                   && art.decodeSize >= 1440 && art.width < root.testedBackdrop.height,
+                   "the full cover fits at high resolution without filling and cropping the window")
+        root.check(art.holdUntilReplaced && art.blend === 1
+                   && art.requestedSource === root.testedService.artUrl,
+                   "the backdrop uses the original image with no fade")
         root.testedPanel.toggleSidebar()
         for (var mode of [0, 1, 2]) {
           root.testedPanel.selectVisualizer(mode)
           root.check(root.testedBackdrop.silhouetteReady, "sidebar and mode changes preserve the backdrop")
         }
         root.testedService.applyStatus({ connected: true, artUrl: "" })
-        root.check(!root.testedBackdrop.silhouetteReady, "missing artwork clears the previous cover")
+        root.check(root.testedBackdrop.silhouetteReady && art.blend === 1,
+                   "missing metadata between tracks leaves the backdrop visible")
         root.testedPanel.close()
+        root.check(!root.testedBackdrop.silhouetteReady, "closing releases the backdrop")
         root.testedPanel.destroy()
         root.testedService.destroy()
         console.log("MICRO_PANDORA_RUNTIME_OK")

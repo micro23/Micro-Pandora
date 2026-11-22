@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.7
+
+- Fit the whole original cover into the full-player backdrop and hold it in place until the next cover is ready.
+
 ## v0.5.6
 
 - Let the full-player album silhouette show through by fading the stage color wash away when the cover loads.

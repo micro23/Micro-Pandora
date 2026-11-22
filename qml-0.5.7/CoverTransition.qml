@@ -8,6 +8,7 @@ Item {
   property bool active: visible
   property int decodeSize: 192
   property int fillMode: Image.PreserveAspectFit
+  property bool holdUntilReplaced: false
   property real artworkOpacity: 1
   property int displayIndex: -1
   property int previousIndex: -1
@@ -19,7 +20,6 @@ Item {
   readonly property real incomingOpacity: artworkOpacity * blend
   readonly property real outgoingOpacity: incomingOpacity < 1
     ? (artworkOpacity - incomingOpacity) / (1 - incomingOpacity) : 0
-  signal sourceFailed(string source)
 
   function finishBlend() {
     reveal.stop()
@@ -30,6 +30,7 @@ Item {
   function updateSource() {
     var requested = active && first.isLocalFile(requestedSource) ? requestedSource : ""
     if (!requested) {
+      if (active && holdUntilReplaced && hasArtwork) return
       finishBlend()
       displayIndex = -1
       first.requestedSource = ""
@@ -56,12 +57,10 @@ Item {
       previousIndex = displayIndex
       blend = 0
       displayIndex = image.bufferIndex
-      if (Commons.Style.reduceMotion) finishBlend()
+      if (holdUntilReplaced || Commons.Style.reduceMotion) finishBlend()
       else reveal.start()
     } else if (image.status === Image.Error) {
-      var failed = image.requestedSource
-      sourceFailed(failed)
-      if (requestedSource !== failed) return
+      if (holdUntilReplaced) return
       finishBlend()
       displayIndex = -1
     }

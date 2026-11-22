@@ -101,27 +101,6 @@ class AlbumPaletteTests(unittest.TestCase):
         self.assertEqual(pithosctl.extract_art_palette("https://example.invalid/cover.png"), {})
         self.assertEqual(pithosctl.extract_art_palette("file://elsewhere/cover.png"), {})
 
-    def test_backdrop_preserves_detail_in_the_source_at_display_resolution(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            source = Path(tmp) / "album with spaces.png"
-            image = Image.new("RGB", (1500, 1000), "#101d4b")
-            image.paste("#f09449", (600, 0, 1500, 1000))
-            image.save(source)
-            with patch.dict(os.environ, {"XDG_RUNTIME_DIR": tmp}):
-                url = pithosctl.cover_backdrop_url(source.as_uri())
-                self.assertTrue(url.startswith(Path(tmp).as_uri()))
-                self.assertEqual(pithosctl.cover_backdrop_url(source.as_uri()), url)
-                with Image.open(pithosctl.unquote(pithosctl.urlsplit(url).path)) as blurred:
-                    self.assertEqual(blurred.size, (960, 640))
-                    self.assertLess(blurred.getpixel((250, 320))[0], 30)
-                    self.assertGreater(blurred.getpixel((600, 320))[0], 220)
-                    transition = [blurred.getpixel((x, 320))[0] for x in (370, 380, 390, 400)]
-                    self.assertEqual(transition, sorted(set(transition)))
-                image.rotate(180).save(source)
-                self.assertNotEqual(pithosctl.cover_backdrop_url(source.as_uri()), url)
-                self.assertEqual(pithosctl.cover_backdrop_url("https://example.invalid/art"), "")
-
-
 class PlayerCommandTests(unittest.TestCase):
     def test_rating_for_a_stale_track_never_reaches_pithos(self):
         with (

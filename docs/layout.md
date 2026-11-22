@@ -4,9 +4,9 @@ Micro-Pandora is a Quickshell plugin with three entry points (`manifest.json`):
 
 | Kind | File | Role |
 | --- | --- | --- |
-| Service | `qml-0.5.6/Service.qml` | Talks to Pithos, cava helper, pins |
-| Bar widget | `qml-0.5.6/BarWidget.qml` | Music-note icon on the Omarchy bar |
-| Panel | `qml-0.5.6/Panel.qml` | Large floating player |
+| Service | `qml-0.5.7/Service.qml` | Talks to Pithos, cava helper, pins |
+| Bar widget | `qml-0.5.7/BarWidget.qml` | Music-note icon on the Omarchy bar |
+| Panel | `qml-0.5.7/Panel.qml` | Large floating player |
 
 ## Bar
 
@@ -42,4 +42,4 @@ Tab to group 3.
 
 The current cover supplies up to seven swatches. Distinct hues tint the stage, station controls, playback, volume, and visualizers. Covers with fewer hues use lighter and darker shades of their own colors. Omarchy supplies the fallback palette and reduced-motion preference.
 
-The full player blurs a high-resolution copy of the original Pithos artwork for the backdrop. The helper writes each derivative once to a private, bounded cache and reuses it while the original image is unchanged.
+The full player fits the entire original Pithos cover into the backdrop. It keeps the cover visible until a replacement has loaded.

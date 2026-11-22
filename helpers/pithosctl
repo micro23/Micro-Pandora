@@ -2,15 +2,12 @@
 """Talk to a running Pithos player over MPRIS. Prints JSON."""
 
 import colorsys
-import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import re
 import shlex
 import signal
-import stat
 import subprocess
 import sys
 import tempfile
@@ -339,66 +336,6 @@ def extract_art_palette(url):
     return {role: "#{:02x}{:02x}{:02x}".format(*rgb) for role, rgb in colors.items()}
 
 
-def cover_backdrop_url(url):
-    try:
-        from PIL import Image, ImageFilter, ImageOps
-    except ImportError:
-        return ""
-    try:
-        uri = urlsplit(url)
-        if uri.scheme != "file" or uri.netloc not in ("", "localhost"):
-            return ""
-        source = Path(unquote(uri.path))
-        if not source.is_absolute():
-            return ""
-        source_stat = source.stat()
-        if not stat.S_ISREG(source_stat.st_mode):
-            return ""
-        cache_root = Path(os.environ.get("XDG_RUNTIME_DIR") or os.environ.get("XDG_CACHE_HOME")
-                          or Path.home() / ".cache")
-        cache = cache_root / "micro-pandora-cover-backdrops"
-        cache.mkdir(mode=0o700, parents=True, exist_ok=True)
-        cache_stat = cache.lstat()
-        if cache.is_symlink() or cache_stat.st_uid != os.getuid() or cache_stat.st_mode & 0o077:
-            return ""
-        # The Pithos cache keeps the original download. Key our derivative by
-        # the file identity so a replaced cover gets the right blur next poll.
-        signature = f"v1:{source}:{source_stat.st_dev}:{source_stat.st_ino}:{source_stat.st_mtime_ns}:{source_stat.st_size}"
-        key = hashlib.sha256(os.fsencode(signature)).hexdigest()
-        target = cache / (key + ".jpg")
-        if target.is_file():
-            return target.as_uri()
-
-        with Image.open(source) as cover:
-            upright = ImageOps.exif_transpose(cover)
-            if min(upright.size) < 1 or max(upright.size) / min(upright.size) > 8:
-                return ""
-            backdrop = ImageOps.contain(upright.convert("RGB"), (960, 960), Image.Resampling.LANCZOS)
-            backdrop = backdrop.filter(ImageFilter.GaussianBlur(min(backdrop.size) * 0.024))
-        with tempfile.NamedTemporaryFile(dir=cache) as temporary:
-            backdrop.save(temporary, "JPEG", quality=88, optimize=True)
-            temporary.flush()
-            # Hard-link the complete temporary file so readers get a whole
-            # image and two simultaneous renders can share the same result.
-            try:
-                os.link(temporary.name, target)
-            except FileExistsError:
-                pass
-        images = [image for image in cache.glob("*.jpg")
-                  if image != target and re.fullmatch(r"[a-f0-9]{64}\.jpg", image.name)]
-        by_age = []
-        for image in images:
-            try:
-                by_age.append((image.stat().st_mtime_ns, image))
-            except FileNotFoundError:
-                continue
-        for _, stale in sorted(by_age, reverse=True)[23:]:
-            stale.unlink(missing_ok=True)
-        return target.as_uri()
-    except (OSError, ValueError, Image.DecompressionBombError):
-        return ""
-
-
 def dump_status(bus, name):
     player = get_all(bus, name, PLAYER)
     root = get_all(bus, name, ROOT)
@@ -452,7 +389,6 @@ def dump_status(bus, name):
         "artist": first_artist(meta),
         "album": clip(meta.get("xesam:album")),
         "artUrl": art_url,
-        "backdropUrl": cover_backdrop_url(art_url),
         "artPalette": extract_art_palette(art_url),
         "trackId": clip(meta.get("mpris:trackid"), MAX_URL),
         "loved": rating >= 0.99,
@@ -478,7 +414,6 @@ def disconnected():
         "artist": "",
         "album": "",
         "artUrl": "",
-        "backdropUrl": "",
         "artPalette": {},
         "trackId": "",
         "loved": False,

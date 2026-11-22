@@ -68,7 +68,6 @@ Item {
   readonly property string artist: String(status.artist || (pithosPlayer ? pithosPlayer.trackArtist : "") || "")
   readonly property string album: String(status.album || (pithosPlayer ? pithosPlayer.trackAlbum : "") || "")
   readonly property string artUrl: String(status.artUrl || (pithosPlayer ? pithosPlayer.trackArtUrl : "") || "")
-  readonly property string backdropUrl: String(status.backdropUrl || "")
   readonly property var artPalette: paletteColors
   readonly property string stationName: String(status.stationName || "")
   readonly property string stationPath: String(status.stationPath || "")

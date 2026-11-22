@@ -8,11 +8,7 @@ Rectangle {
   required property color baseColor
   required property color secondaryColor
   property string artSource: ""
-  property string backdropSource: ""
-  property string unavailableBackdrop: ""
   property bool fullWindow: false
-  readonly property string silhouetteSource: backdropSource !== unavailableBackdrop
-    ? backdropSource || artSource : artSource
   readonly property bool silhouetteReady: !!(silhouette.item && silhouette.item.hasArtwork)
 
   Behavior on baseColor {
@@ -32,18 +28,18 @@ Rectangle {
 
   Loader {
     id: silhouette
-    anchors.fill: parent
-    active: root.fullWindow && root.visible && root.silhouetteSource !== ""
+    anchors.right: parent.right
+    anchors.rightMargin: Math.round(parent.width * 0.035)
+    anchors.verticalCenter: parent.verticalCenter
+    width: Math.round(Math.min(parent.width * 0.54, parent.height * 0.84))
+    height: width
+    active: root.fullWindow && root.visible
     sourceComponent: CoverTransition {
-      // This image has already been filtered from the original local cover.
-      decodeSize: root.silhouetteSource === root.backdropSource ? 960 : 56
-      fillMode: Image.PreserveAspectCrop
-      clip: true
-      artworkOpacity: 0.53
-      requestedSource: root.silhouetteSource
-      onSourceFailed: function(source) {
-        if (source === root.backdropSource) root.unavailableBackdrop = source
-      }
+      objectName: "fullWindowCoverArt"
+      decodeSize: 1600
+      artworkOpacity: 0.34
+      holdUntilReplaced: true
+      requestedSource: root.artSource
     }
   }
 
