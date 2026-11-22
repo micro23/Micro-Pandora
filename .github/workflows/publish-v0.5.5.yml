@@ -1,0 +1,30 @@
+name: Publish Micro-Pandora 0.5.5
+on:
+  push:
+    branches: [release-v0.5.5]
+    paths: [.github/workflows/publish-v0.5.5.yml]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: bd87fb2465fe02c9e71b6a17c3d068625f19c55c
+    steps:
+      - name: Package and publish the verified commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git clone --no-checkout "https://github.com/$GH_REPO.git" source
+          test "$(git -C source show "$TARGET:manifest.json" | jq -r .version)" = 0.5.5
+          git -C source archive --format=tar --prefix=Micro-Pandora-0.5.5/ "$TARGET" | gzip -n > Micro-Pandora-0.5.5.tar.gz
+          sha256sum Micro-Pandora-0.5.5.tar.gz > SHA256SUMS
+          cat > notes.md <<'NOTES'
+          Rank album hues by their coverage and use up to five distinct colors across the full player, mini player and every visualizer. The dominant hue leads the stage and main controls.
+          
+          Right-click the music note to open the full player. Extract the archive and run `./scripts/setup.sh` to install.
+          NOTES
+          gh release create v0.5.5 Micro-Pandora-0.5.5.tar.gz SHA256SUMS --target "$TARGET" --title 'Micro-Pandora 0.5.5' --notes-file notes.md --latest
