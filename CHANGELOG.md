@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.5
+
+- Show full song titles in the main player. Long titles wrap and can be scrolled when the player is compact.
+- Place synced lyrics directly below the visualizer. The active word highlights in place as the row scrolls horizontally.
+
 ## v0.6.3
 
 - Synced lyrics in the full player: tap the **♪ Lyrics** pill in the header to turn them on. When the song has timed lyrics on lrclib.net, words slide along the top of the stage and the current word drops big into the middle, then floats back up when the next one comes. The visualizer stays but gives the lyrics room. Lyrics are only fetched while the full player is open.

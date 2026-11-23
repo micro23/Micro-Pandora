@@ -15,9 +15,10 @@ Item {
   required property color high
   required property bool playing
   required property bool showPeaks
+  property bool lyricsBelow: false
 
   readonly property int bands: Math.min(levels.length, tones.length)
-  readonly property real floorY: height - Math.min(height * 0.18, Commons.Style.space(54))
+  readonly property real floorY: height - (lyricsBelow ? 2 : Math.min(height * 0.18, Commons.Style.space(54)))
   readonly property real pitch: width / Math.max(1, bands)
   readonly property var headroom: {
     var limits = []

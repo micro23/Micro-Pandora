@@ -188,7 +188,9 @@ ShellRoot {
         root.testedPanel = panel
         root.testedService = service
         var coverUrl = "file://" + Quickshell.env("MICRO_PANDORA_TEST_UI") + "/../helpers/micro-pandora.png"
-        service.applyStatus({ connected: true, artUrl: coverUrl })
+        service.applyStatus({ connected: true, artUrl: coverUrl,
+          title: "Kush (Main) (feat. Snoop Dogg & Akon) — "
+            + "Live from the studio with the original collaborators — ".repeat(8) })
         panel.chooseTab("nowplaying")
         coverCheck.start()
         return
@@ -220,11 +222,38 @@ ShellRoot {
         root.check(art.holdUntilReplaced && art.blend === 1
                    && art.requestedSource === root.testedService.artUrl,
                    "the fallback keeps the original image visible with no fade")
+        var title = root.findVisualChild(root.testedBackdrop.parent, "nowPlayingTitle")
+        root.check(title && title.text === root.testedService.title
+                   && title.lineCount > 2 && !title.truncated,
+                   "the full player wraps long song titles without truncating them")
         root.testedPanel.toggleSidebar()
         for (var mode of [0, 1, 2, 3]) {
           root.testedPanel.selectVisualizer(mode)
           root.check(root.testedBackdrop.silhouetteReady, "sidebar and mode changes preserve the backdrop")
         }
+        var lyrics = root.findVisualChild(stage.parent, "playerLyrics")
+        var visualizer = root.findVisualChild(stage.parent, "playerVisualizer")
+        root.testedService.lyricLines = [{ time: 0, text: "First second third" }]
+        root.testedService.lyricState = "ready"
+        root.testedPanel.lyricsOn = true
+        for (var lyricMode of [0, 1, 2, 3]) {
+          root.testedPanel.selectVisualizer(lyricMode)
+          root.check(lyrics.visible && visualizer.lyricsBelow && visualizer.clip
+                     && Math.abs(lyrics.y - visualizer.y - visualizer.height) < 1
+                     && lyrics.y + lyrics.height < stage.height,
+                     "the lyric row fits directly below the visualizer in every mode")
+        }
+        var firstWord = root.findVisualChild(lyrics, "lyricWord")
+        var lyricRow = firstWord.parent
+        lyricRow.forceLayout()
+        var secondWord = lyricRow.children.find(child => child.objectName === "lyricWord" && child.index === 1)
+        var wordY = firstWord.y
+        lyrics.smooth = lyrics.words[1].time
+        root.check(!firstWord.singing && secondWord.singing && secondWord.y === wordY
+                   && secondWord.y >= 0 && secondWord.y + secondWord.height <= lyrics.height,
+                   "the active highlight moves between words on the same visible line")
+        root.testedPanel.lyricsOn = false
+        root.check(!visualizer.lyricsBelow && !visualizer.clip, "hiding lyrics restores the visualizer")
         root.testedService.applyStatus({ connected: true, artUrl: "" })
         root.check(root.testedBackdrop.silhouetteReady && art.blend === 1,
                    "missing metadata between tracks leaves the backdrop visible")

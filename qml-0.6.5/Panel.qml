@@ -979,7 +979,7 @@ Item {
                   cornerRadius: Style.space(16)
                 }
 
-                Item {
+                Flickable {
                   id: heroStage
                   readonly property bool compact: height < Style.space(380)
                   anchors.left: parent.left
@@ -988,22 +988,31 @@ Item {
                   anchors.bottom: parent.bottom
                   anchors.margins: Style.space(28)
                   anchors.topMargin: Style.space(30)
-                  anchors.bottomMargin: (visualizer.visualizing ? visualizer.centerHeight : 0) + Style.space(26)
+                  anchors.bottomMargin: (visualizer.visualizing ? visualizer.centerHeight : 0)
+                    + (lyricsStage.visible ? lyricsStage.height : 0) + Style.space(26)
+                  contentWidth: width
+                  contentHeight: Math.max(height, nowPlayingHero.implicitHeight)
+                  flickableDirection: Flickable.VerticalFlick
+                  boundsBehavior: Flickable.StopAtBounds
+                  interactive: contentHeight > height
+                  clip: interactive
                   z: 1
 
                   GridLayout {
                     id: nowPlayingHero
-                    anchors.centerIn: parent
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: Math.max(0, (heroStage.height - height) / 2)
                     columns: heroStage.compact ? 2 : 1
                     width: heroStage.compact
-                      ? Math.min(parent.width, coverSize + columnSpacing + textWidth)
-                      : parent.width
+                      ? Math.min(heroStage.width, coverSize + columnSpacing
+                          + Math.max(textWidth, heroTitle.implicitWidth))
+                      : heroStage.width
                     rowSpacing: Style.space(23)
                     columnSpacing: Style.space(34)
                     readonly property real coverSize: heroStage.compact
                       ? Math.max(1, Math.min(Style.space(264), heroStage.height, heroStage.width * 0.36))
                       : Math.min(Style.space(495), heroStage.width * 0.66,
-                          Math.max(1, heroStage.height - metadataReserve))
+                          Math.max(Style.space(96), heroStage.height - metadataReserve))
                     readonly property real textWidth: Math.min(Style.space(465), heroStage.width * 0.56)
                     readonly property real metadataReserve: nowPlayingMeta.implicitHeight + rowSpacing
 
@@ -1045,7 +1054,7 @@ Item {
                       id: nowPlayingMeta
                       Layout.preferredWidth: heroStage.compact
                         ? nowPlayingHero.width - nowPlayingHero.coverSize - nowPlayingHero.columnSpacing
-                        : Math.min(nowPlayingHero.width, Style.space(680))
+                        : nowPlayingHero.width
                       Layout.alignment: heroStage.compact ? Qt.AlignLeft | Qt.AlignVCenter : Qt.AlignHCenter
                       spacing: Style.space(5)
 
@@ -1057,21 +1066,21 @@ Item {
 
                       Text {
                         id: heroTitle
+                        objectName: "nowPlayingTitle"
                         width: parent.width
                         textFormat: Text.PlainText
                         text: root.service && root.service.title
                           ? root.service.title : "Nothing playing"
+                        onTextChanged: heroStage.contentY = 0
                         color: root.foreground
                         font.family: root.displayFamily
                         font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 2.76,
                           Math.max(Style.font.displayLarge * 1.20, heroStage.height * 0.125),
-                          heroStage.compact ? nowPlayingMeta.width * 0.20 : heroStage.width * 0.125))
+                          heroStage.compact ? nowPlayingHero.textWidth * 0.20 : heroStage.width * 0.125))
                         font.weight: Font.Bold
                         font.letterSpacing: -Style.space(1.7)
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         wrapMode: Text.Wrap
-                        maximumLineCount: heroStage.height < Style.space(175) ? 1 : 2
-                        elide: Text.ElideRight
                       }
 
                       Button {
@@ -1177,11 +1186,11 @@ Item {
 
                 LyricsStage {
                   id: lyricsStage
+                  objectName: "playerLyrics"
                   anchors.left: parent.left
                   anchors.right: parent.right
-                  anchors.top: parent.top
-                  anchors.bottom: visualizer.top
-                  anchors.margins: Style.space(14)
+                  anchors.bottom: parent.bottom
+                  anchors.margins: Style.space(15)
                   visible: root.lyricsOn && !!(root.service && root.service.lyricState === "ready")
                   active: root.opened && root.currentTab === "nowplaying" && visible
                   lines: root.service ? root.service.lyricLines : []
@@ -1189,21 +1198,20 @@ Item {
                   playing: !!(root.service && root.service.playing)
                   foreground: root.foreground
                   accent: root.accent
-                  muted: root.muted
                   fontFamily: root.displayFamily
-                  tickerHeight: Style.space(34)
-                  bigSize: Math.max(32, Math.min(76, Math.round(width / 11)))
-                  tickerY: heroStage.y + heroStage.height - y + Style.space(8)
-                  bigCenterY: (tickerY + tickerHeight + height) / 2
-                  z: 2
                 }
 
                 Visualizer {
                   id: visualizer
                   objectName: "playerVisualizer"
-                  anchors.fill: parent
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.bottom: lyricsStage.visible ? lyricsStage.top : parent.bottom
                   anchors.margins: Style.space(15)
-                  centerHeight: Math.round(parent.height * (lyricsStage.visible ? 0.14 : 0.23))
+                  anchors.bottomMargin: lyricsStage.visible ? 0 : Style.space(15)
+                  lyricsBelow: lyricsStage.visible
+                  centerHeight: Math.round(parent.height * (lyricsBelow ? 0.14 : 0.23))
                   Behavior on centerHeight { NumberAnimation { duration: 300; easing.type: Easing.InOutQuad } }
                   protectedWidth: heroStage.compact ? nowPlayingHero.width + Style.space(28)
                     : Math.max(nowPlayingHero.coverSize + Style.space(56),

@@ -10,12 +10,14 @@ Canvas {
   required property bool playing
   required property real centerHeight
   required property var heightLimit
+  property bool lyricsBelow: false
 
   onLevelsChanged: if (visible) requestPaint()
   onPeakLevelsChanged: if (visible) requestPaint()
   onPaletteChanged: requestPaint()
   onPlayingChanged: requestPaint()
   onCenterHeightChanged: requestPaint()
+  onLyricsBelowChanged: requestPaint()
   onWidthChanged: requestPaint()
   onHeightChanged: requestPaint()
   onVisibleChanged: if (visible) requestPaint()
@@ -64,7 +66,7 @@ Canvas {
     ctx.clearRect(0, 0, width, height)
     if (levels.length < 4) return
 
-    var axis = height - centerHeight * 0.44
+    var axis = height - (lyricsBelow ? 1 : centerHeight * 0.44)
     var points = []
     var trails = []
     var reflections = []

@@ -9,6 +9,8 @@ Item {
 
   property bool playing: false
   property bool active: visible
+  property bool lyricsBelow: false
+  clip: lyricsBelow
   property var barColors: [Commons.Color.accent]
   property color dimColor: Commons.Color.muted
   property int barCount: 56
@@ -241,6 +243,7 @@ Item {
 
     SpectrumField {
       anchors.fill: parent
+      lyricsBelow: root.lyricsBelow
       levels: visible ? root.displayLevels : []
       peaks: visible ? root.peakLevels : []
       tones: root.linearTones
@@ -261,6 +264,7 @@ Item {
 
     MirrorRibbon {
       anchors.fill: parent
+      lyricsBelow: root.lyricsBelow
       centerHeight: renderLayer.centerHeight
       heightLimit: renderLayer.heightLimit
       opacity: root.modeIndex === 1 ? 1 : 0
