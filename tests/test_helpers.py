@@ -115,8 +115,10 @@ class AlbumPaletteTests(unittest.TestCase):
                     self.assertEqual(blurred.size, (960, 640))
                     self.assertLess(blurred.getpixel((250, 320))[0], 30)
                     self.assertGreater(blurred.getpixel((600, 320))[0], 220)
-                    transition = [blurred.getpixel((x, 320))[0] for x in (370, 380, 390, 400)]
+                    transition = [blurred.getpixel((x, 320))[0] for x in (375, 380, 387, 392)]
                     self.assertEqual(transition, sorted(set(transition)))
+                    self.assertLess(blurred.getpixel((375, 320))[0], 35)
+                    self.assertGreater(blurred.getpixel((392, 320))[0], 225)
                 image.rotate(180).save(source)
                 self.assertNotEqual(pithosctl.cover_backdrop_url(source.as_uri()), url)
                 self.assertEqual(pithosctl.cover_backdrop_url("https://example.invalid/art"), "")
