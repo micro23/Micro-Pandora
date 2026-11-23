@@ -6,7 +6,11 @@ Micro-Pandora is a Pandora player for the Omarchy desktop. Open it from the laun
 
 | Mini player | Full player |
 | --- | --- |
-| [![Mini player with amber saxophone cover art](docs/screenshots/mini-player.webp)](docs/screenshots/mini-player.webp) | [![Full player with blue mountain cover art and a station sidebar](docs/screenshots/full-player.webp)](docs/screenshots/full-player.webp) |
+| [![Mini player popup card with centered track details](docs/screenshots/mini-player.webp)](docs/screenshots/mini-player.webp) | [![Full player with station sidebar and centered controls](docs/screenshots/full-player.webp)](docs/screenshots/full-player.webp) |
+
+| Live Synced Lyrics | Orbit Visualizer |
+| --- | --- |
+| [![Live synced lyrics with active line highlighting](docs/screenshots/lyrics.webp)](docs/screenshots/lyrics.webp) | [![Orbit rings below album artwork](docs/screenshots/orbit.webp)](docs/screenshots/orbit.webp) |
 
 | Spectrum | Mirror |
 | --- | --- |
@@ -47,6 +51,7 @@ Run `omarchy plugin remove io.github.micro23.micro-pandora` to remove the plugin
 - Pithos runs on a hidden workspace by default. **Settings → Show Pithos window** opens the native interface when you need it.
 - Select a station in the sidebar. Use the pin next to the station name (or press **P**) to keep it in **My list**. Press **Ctrl+B** or click the sidebar icon to hide or show the station column.
 - The full player has play, pause, skip, thumbs up/down, "tired of song", volume, and mute controls, all centered symmetrically under the artwork. Progress is read-only because Pandora doesn’t offer seeking here.
+- Press **L** or click **♪ Lyrics** in the header to display live synchronized, scrolling lyrics. When lyrics are turned off, the audio visualizer smoothly expands to claim the full stage.
 - The mini player on the Omarchy bar gives you a quick centered popup card with track details, album art, station badge, volume, and thumbs/tired controls.
 - Track and album titles automatically hide `(Explicit)` tags for a cleaner look.
 - Choose **Spectrum**, **Mirror**, **Orbit**, or **Off** in the header. Press **V** to cycle through all four. Pandora keeps playing in **Off** mode.

@@ -38,6 +38,7 @@ Item {
   property string displayMode: "full" // "full" or "mini"
   property alias stationSidebarCollapsed: viewPreferences.sidebarCollapsed
   property alias visualizerMode: viewPreferences.visualizerMode
+  property alias lyricsOn: viewPreferences.lyricsOn
 
   Core.Settings {
     id: viewPreferences
@@ -45,6 +46,7 @@ Item {
     category: "Player"
     property bool sidebarCollapsed: false
     property int visualizerMode: 0
+    property bool lyricsOn: false
   }
 
   property string preferredScreenName: ""
@@ -497,6 +499,7 @@ Item {
       return "ok"
     }
     function setVisualizer(mode: int): string { root.visualizerMode = mode; return "ok" }
+    function toggleLyrics(): string { root.lyricsOn = !root.lyricsOn; return "ok" }
     function openSettings(): string {
       root.openFullPlayer("", "setup")
       return "ok"

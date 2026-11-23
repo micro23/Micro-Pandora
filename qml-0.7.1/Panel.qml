@@ -22,7 +22,8 @@ Item {
   property int pinCursor: -1
   property string browseTarget: "nowplaying"
   property bool shortcutHelpOpen: false
-  property bool lyricsOn: false
+  property bool localLyricsOn: false
+  property bool lyricsOn: service && service.lyricsOn !== undefined ? service.lyricsOn : localLyricsOn
   property bool localSidebarCollapsed: false
   Connections { target: root.service; function onVisualizerModeChanged() { if (root.service && root.service.visualizerMode !== undefined) visualizer.selectMode(root.service.visualizerMode) } }
   readonly property bool sidebarCollapsed: service && service.stationSidebarCollapsed !== undefined
@@ -432,7 +433,7 @@ Item {
         enabled: root.opened && !root.shortcutHelpOpen
           && root.currentTab !== "setup"
           && !(stationSearch.visible && stationSearch.activeFocus)
-        onActivated: root.lyricsOn = !root.lyricsOn
+        onActivated: if (root.service && root.service.lyricsOn !== undefined) root.service.lyricsOn = !root.service.lyricsOn; else root.localLyricsOn = !root.localLyricsOn
       }
 
       Shortcut {
@@ -866,7 +867,7 @@ Item {
                 MouseArea {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: root.lyricsOn = !root.lyricsOn
+                  onClicked: if (root.service && root.service.lyricsOn !== undefined) root.service.lyricsOn = !root.service.lyricsOn; else root.localLyricsOn = !root.localLyricsOn
                 }
 
                 PanelToolTip {

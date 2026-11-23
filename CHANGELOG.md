@@ -3,6 +3,7 @@
 ## [0.7.1] - 2026-11-23
 
 ### Added
+- **Live Synced Lyrics**: Added synced lyrics screenshot and documentation for real-time scrolling lyrics (`L` toggle).
 - **Centered Player Controls**: Play/pause and transport controls are anchored directly in the center of the player window (`anchors.centerIn: parent`).
 - **Sidebar Centering Lock**: The Now Playing hero (album art and track metadata) stays centered in the full window when the stations sidebar opens or closes.
 - **Matched Thumbs Down Icon**: Switched thumbs down to outline icon (`󰔒`) matching unselected thumbs up styling (`󰔔`).
