@@ -10,6 +10,6 @@ The map of the source tree is [LAYOUT.md](../LAYOUT.md) in the repo root.
 | [Dependencies](dependencies.md) | Pithos and cava |
 | [First run](first-run.md) | Sign in, play, pin stations |
 | [Keyboard](keyboard.md) | Shortcuts |
-| [Layout](layout.md) | Bar, sidebar, player |
+| [Layout](layout.md) | Bar controls, player layouts, and screenshots of every visualizer mode |
 | [Pithos](pithos.md) | Hidden playback process |
 | [Troubleshooting](troubleshooting.md) | Common fixes |
