@@ -5,7 +5,7 @@
   "version": "0.6.1",
   "author": "micro23, Dankestrick and contributors",
   "license": "MIT",
-  "description": "Play Pandora radio from the Omarchy bar or a full player with album-art colors, pinned stations, and three live visualizers.",
+  "description": "Pandora radio for Omarchy, with a bar mini player, a full player with album artwork and pinned stations, and Spectrum, Mirror, Orbit, and Off modes. For problems, feedback, or questions, email micro23@gmail.com.",
   "dependencies": [
     {
       "name": "python-pillow",

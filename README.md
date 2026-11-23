@@ -2,12 +2,11 @@
 
 Micro-Pandora is a Pandora player for the Omarchy desktop. Open it from the launcher or use the mini player on the bar. The full player enlarges the current album cover into a soft backdrop behind the sharp artwork and live visualizer. Both players pick up the album’s colors. Sign in from Micro-Pandora’s Settings and use Pithos as the playback backend.
 
-[![Micro-Pandora full player with blue mountain cover art, a station sidebar, and Spectrum](docs/screenshots/full-player.webp)](docs/layout.md#screenshots)
+## Screenshots
 
-<details>
-<summary>Mini player and visualizer screenshots</summary>
-
-[![Mini player with amber saxophone cover art](docs/screenshots/mini-player.webp)](docs/screenshots/mini-player.webp)
+| Mini player | Full player |
+| --- | --- |
+| [![Mini player with amber saxophone cover art](docs/screenshots/mini-player.webp)](docs/screenshots/mini-player.webp) | [![Full player with blue mountain cover art and a station sidebar](docs/screenshots/full-player.webp)](docs/screenshots/full-player.webp) |
 
 | Spectrum | Mirror |
 | --- | --- |
@@ -17,9 +16,7 @@ Micro-Pandora is a Pandora player for the Omarchy desktop. Open it from the laun
 | --- | --- |
 | [![Orbit with lavender planet cover art](docs/screenshots/orbit.webp)](docs/screenshots/orbit.webp) | [![Off with terracotta desert cover art](docs/screenshots/off.webp)](docs/screenshots/off.webp) |
 
-</details>
-
-See the [player layout guide](docs/layout.md#screenshots) for full-size screenshots and control details.
+See the [screenshot gallery](https://micro23.github.io/Micro-Pandora/) and the [player layout guide](docs/layout.md#screenshots).
 
 ## Install
 
@@ -50,6 +47,10 @@ Run `omarchy plugin remove io.github.micro23.micro-pandora` to remove the plugin
 - Open **Settings → App updates** to check for a release and install it when you’re ready. Background checks can be turned off there.
 
 See [installation](docs/install.md), [keyboard shortcuts](docs/keyboard.md), and [troubleshooting](docs/troubleshooting.md) for more.
+
+## Contact
+
+For problems, feedback, or questions about Micro-Pandora, email [micro23@gmail.com](mailto:micro23@gmail.com).
 
 ## Credits
 
