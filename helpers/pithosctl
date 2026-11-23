@@ -443,12 +443,14 @@ def dump_status(bus, name):
     length_us = int(meta.get("mpris:length") or 0)
     position_us = int(player.get("Position") or 0)
     art_url = clip(meta.get("mpris:artUrl"), MAX_URL)
+    raw_title = clip(meta.get("xesam:title"))
+    clean_title = re.sub(r"\s*[\(\[\{]\s*explicit(\s+version|\s+content)?\s*[\)\]\}]\s*", " ", raw_title, flags=re.IGNORECASE).strip() if raw_title else ""
     return {
         "connected": True,
         "bus": clip(name),
         "identity": clip(root.get("Identity") or "Pithos"),
         "status": clip(player.get("PlaybackStatus") or "Stopped", 32),
-        "title": clip(meta.get("xesam:title")),
+        "title": clean_title,
         "artist": first_artist(meta),
         "album": clip(meta.get("xesam:album")),
         "artUrl": art_url,
