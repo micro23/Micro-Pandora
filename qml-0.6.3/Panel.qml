@@ -825,7 +825,7 @@ Item {
               // Lyrics toggle pill
               Rectangle {
                 visible: root.currentTab === "nowplaying"
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
                 width: lyricsLabel.implicitWidth + Style.space(22)
                 height: Style.space(26)
                 radius: height / 2
@@ -855,7 +855,7 @@ Item {
                 }
 
                 PanelToolTip {
-                  visible: lyricsPillHover.containsMouse
+                  visible: lyricsPillHover.hovered
                   text: root.lyricsOn ? "Hide lyrics" : "Show lyrics"
                   fontFamily: root.fontFamily
                 }
