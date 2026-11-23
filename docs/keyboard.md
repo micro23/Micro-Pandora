@@ -8,7 +8,7 @@
 | `Tab` / `F6` | Cycle **My list**, **Your stations**, then the **big player** |
 | `↑` / `↓` | Move highlight inside the current Tab group (wraps) |
 | `Enter` | Play the highlighted station (or play/pause on the big player) |
-| `C` | Pin or unpin the highlighted station |
+| `P` | Pin or unpin the highlighted station |
 | `Space` | Play or pause |
 | `Ctrl+Right` | Next song |
 | `Ctrl+Up` / `Ctrl+Down` | Volume |

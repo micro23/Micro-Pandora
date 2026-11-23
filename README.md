@@ -45,8 +45,10 @@ Run `omarchy plugin remove io.github.micro23.micro-pandora` to remove the plugin
 - Left-click the music note in the bar for the mini player. Right-click for the full player.
 - On first use, enter your Pandora email and password in **Settings**, then choose **Save and connect**. The password stays in the desktop keyring on that computer.
 - Pithos runs on a hidden workspace by default. **Settings → Show Pithos window** opens the native interface when you need it.
-- Select a station in the sidebar. Use the pin next to the station name to keep it in **My list**. Press **Ctrl+B** or click the sidebar icon beside **Now playing** to hide or show the station column.
-- The full player has play, pause, skip, volume, and mute controls. Progress is read-only because Pandora doesn’t offer seeking here.
+- Select a station in the sidebar. Use the pin next to the station name (or press **P**) to keep it in **My list**. Press **Ctrl+B** or click the sidebar icon to hide or show the station column.
+- The full player has play, pause, skip, thumbs up/down, "tired of song", volume, and mute controls, all centered symmetrically under the artwork. Progress is read-only because Pandora doesn’t offer seeking here.
+- The mini player on the Omarchy bar gives you a quick centered popup card with track details, album art, station badge, volume, and thumbs/tired controls.
+- Track and album titles automatically hide `(Explicit)` tags for a cleaner look.
 - Choose **Spectrum**, **Mirror**, **Orbit**, or **Off** in the header. Press **V** to cycle through all four. Pandora keeps playing in **Off** mode.
 - Open **Settings → App updates** to check for a release and install it when you’re ready. Background checks can be turned off there.
 - Open **Settings → Edit playlists** to browse all your Pandora stations, check the ones you want removed, and delete them in one step. Pandora's website and apps make this painfully slow — the playlist manager does it in seconds. QuickMix is locked. The list refreshes automatically after deletion.

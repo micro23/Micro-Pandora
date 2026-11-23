@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.1] - 2026-11-23
+
+### Added
+- **Centered Player Controls**: Play/pause and transport controls are anchored directly in the center of the player window (`anchors.centerIn: parent`).
+- **Sidebar Centering Lock**: The Now Playing hero (album art and track metadata) stays centered in the full window when the stations sidebar opens or closes.
+- **Matched Thumbs Down Icon**: Switched thumbs down to outline icon (`󰔒`) matching unselected thumbs up styling (`󰔔`).
+- **Sleepy Note Tired Icon**: Updated "Tired of this song" button to a sleepy music note icon (`󰎆`).
+- **Mini Player Refinements**: Centered title, artist, album, and live playback indicator in a rounded station pill badge; removed redundant top-right thumbs up button.
+- **Dynamic Space Reclamation**: Full vertical space is reclaimed by the visualizer when lyrics are hidden (`parent.height * 0.48`), with tighter padding when lyrics are active.
+- **Explicit Tag Stripping**: Track and album titles automatically strip `(Explicit)` and `(Explicit Version)` tags to conserve space.
+- **Keyboard Shortcut**: Pin/unpin station key set to `P` on the keyboard (`Qt.Key_P`), reflected in documentation and cheat sheets.
+
+
 ## v0.6.5
 
 - Show full song titles in the main player. Long titles wrap and can be scrolled when the player is compact.

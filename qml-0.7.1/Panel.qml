@@ -641,7 +641,7 @@ Item {
                           leftPadding: Style.space(5)
                           readonly property string pinsError: root.service ? root.service.pinsError : ""
                           visible: root.pinnedStations.length === 0 || pinsError !== ""
-                          text: pinsError !== "" ? pinsError : "Pin a station with C"
+                          text: pinsError !== "" ? pinsError : "Pin a station with P"
                           color: pinsError !== "" ? Commons.Color.urgent : root.muted
                           font.family: root.displayFamily
                           font.pixelSize: Style.font.body
