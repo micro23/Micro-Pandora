@@ -611,7 +611,6 @@ Flickable {
 
                         Text {
                           anchors.centerIn: parent
-                          textFormat: Text.PlainText
                           text: rowItem.isQuickMix ? "󰌾" : "󰄬"
                           color: rowItem.isQuickMix ? root.muted : "#000000"
                           font.family: Style.font.family
@@ -642,7 +641,6 @@ Flickable {
                         Text {
                           id: qmLabel
                           anchors.centerIn: parent
-                          textFormat: Text.PlainText
                           text: "Default"
                           color: root.muted
                           font.family: root.displayFamily

@@ -1074,9 +1074,9 @@ Item {
                         onTextChanged: heroStage.contentY = 0
                         color: root.foreground
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 2.76,
-                          Math.max(Style.font.displayLarge * 1.20, heroStage.height * 0.125),
-                          heroStage.compact ? nowPlayingHero.textWidth * 0.20 : heroStage.width * 0.125))
+                        font.pixelSize: Math.round(Math.min(Style.font.displayLarge * 2.52,
+                          Math.max(Style.font.displayLarge * 1.10, heroStage.height * 0.112),
+                          heroStage.compact ? nowPlayingHero.textWidth * 0.18 : heroStage.width * 0.112))
                         font.weight: Font.Bold
                         font.letterSpacing: -Style.space(1.7)
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
@@ -1103,8 +1103,9 @@ Item {
                         text: root.service ? root.service.artist : ""
                         color: root.accent
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Style.font.title * 1.62)
-                        font.weight: Font.Medium
+                        font.pixelSize: Math.round(Style.font.title * 1.88)
+                        font.weight: Font.Bold
+                        font.letterSpacing: Style.space(0.6)
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         elide: Text.ElideRight
                       }
@@ -1114,9 +1115,12 @@ Item {
                         visible: root.service && root.service.album !== ""
                         textFormat: Text.PlainText
                         text: root.service ? root.service.album : ""
-                        color: root.muted
+                        color: root.accentAlt
                         font.family: root.displayFamily
-                        font.pixelSize: Math.round(Style.font.title * 1.16)
+                        font.pixelSize: Math.round(Style.font.title * 1.32)
+                        font.italic: true
+                        font.weight: Font.Medium
+                        font.letterSpacing: Style.space(0.3)
                         horizontalAlignment: heroStage.compact ? Text.AlignLeft : Text.AlignHCenter
                         elide: Text.ElideRight
                       }
@@ -1191,6 +1195,7 @@ Item {
                   anchors.right: parent.right
                   anchors.bottom: parent.bottom
                   anchors.margins: Style.space(15)
+                  anchors.bottomMargin: Style.space(28)
                   visible: root.lyricsOn && !!(root.service && root.service.lyricState === "ready")
                   active: root.opened && root.currentTab === "nowplaying" && visible
                   lines: root.service ? root.service.lyricLines : []
@@ -1198,6 +1203,7 @@ Item {
                   playing: !!(root.service && root.service.playing)
                   foreground: root.foreground
                   accent: root.accent
+                  accentAlt: root.accentAlt
                   fontFamily: root.displayFamily
                 }
 

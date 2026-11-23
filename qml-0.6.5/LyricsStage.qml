@@ -11,6 +11,7 @@ Item {
   property bool active: visible
   property color foreground: "white"
   property color accent: "white"
+  property color accentAlt: "white"
   property string fontFamily: ""
 
   implicitHeight: Math.max(Commons.Style.space(34), row.implicitHeight + Commons.Style.space(8))
@@ -107,10 +108,10 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: modelData.text
         textFormat: Text.PlainText
-        color: singing ? stage.accent : stage.foreground
-        opacity: singing ? 1 : Math.max(0.2, (index < stage.current ? 0.58 : 0.82) - distance * 0.045)
+        color: singing ? stage.accent : (index > stage.current ? stage.accentAlt : stage.foreground)
+        opacity: singing ? 1 : Math.max(0.22, (index < stage.current ? 0.52 : 0.78) - distance * 0.04)
         font.family: stage.fontFamily
-        font.pixelSize: Commons.Style.space(22)
+        font.pixelSize: Commons.Style.space(26)
         font.weight: Font.DemiBold
 
         Behavior on color { ColorAnimation { duration: Commons.Style.duration(140) } }
