@@ -496,6 +496,7 @@ Item {
       root.openFullPlayer()
       return "ok"
     }
+    function setVisualizer(mode: int): string { root.visualizerMode = mode; return "ok" }
     function openSettings(): string {
       root.openFullPlayer("", "setup")
       return "ok"

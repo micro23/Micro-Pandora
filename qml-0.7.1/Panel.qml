@@ -24,6 +24,7 @@ Item {
   property bool shortcutHelpOpen: false
   property bool lyricsOn: false
   property bool localSidebarCollapsed: false
+  Connections { target: root.service; function onVisualizerModeChanged() { if (root.service && root.service.visualizerMode !== undefined) visualizer.selectMode(root.service.visualizerMode) } }
   readonly property bool sidebarCollapsed: service && service.stationSidebarCollapsed !== undefined
     ? service.stationSidebarCollapsed : localSidebarCollapsed
   // True while the window is being moved to another monitor. Quickshell
