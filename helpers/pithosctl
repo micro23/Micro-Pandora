@@ -843,9 +843,85 @@ def save_pins():
     return {"ok": True, "pins": len(pins)}
 
 
+def delete_stations(station_tokens):
+    tokens = [str(t).strip() for t in station_tokens if str(t).strip()]
+    if not tokens:
+        raise SystemExit("No playlists provided to delete.")
+
+    settings = pithos_settings()
+    email = settings.get_string("email") if settings else ""
+    if not email:
+        raise SystemExit("Pandora email not found in settings.")
+
+    gi.require_version("Secret", "1")
+    from gi.repository import Secret
+
+    schema = Secret.Schema.new(
+        "io.github.Pithos.Account",
+        Secret.SchemaFlags.NONE,
+        {"email": Secret.SchemaAttributeType.STRING},
+    )
+    password = Secret.password_lookup_sync(schema, {"email": email}, None)
+    if not password:
+        raise SystemExit("Pandora password not found in desktop keyring.")
+
+    sys.path.insert(0, "/usr/share/pithos")
+    from pithos.pandora import make_pandora
+    from pithos.pandora.data import client_keys, default_client_id
+
+    p = make_pandora(False)
+    client = client_keys[default_client_id]
+    p.connect(client, email, password)
+
+    deleted = []
+    errors = []
+    for token in tokens:
+        try:
+            p.json_call("station.deleteStation", {"stationToken": token})
+            deleted.append(token)
+        except Exception as exc:
+            errors.append({"id": token, "error": str(exc)})
+
+    # Unpin deleted stations from pins file
+    try:
+        if os.path.exists(PINS_FILE):
+            with open(PINS_FILE, "r", encoding="utf-8") as handle:
+                pins = json.load(handle)
+            if isinstance(pins, list):
+                new_pins = [pin for pin in pins if str(pin.get("id")) not in deleted]
+                with open(PINS_FILE, "w", encoding="utf-8") as handle:
+                    json.dump(new_pins, handle, ensure_ascii=False)
+    except Exception:
+        pass
+
+    # Restart Pithos backend to refresh stations from Pandora
+    try:
+        reconnect_pithos()
+    except Exception:
+        pass
+
+    return {"ok": True, "deleted": deleted, "errors": errors}
+
+
 def main(argv):
     command = (argv[1] if len(argv) > 1 else "status").strip().lower()
     argument = argv[2] if len(argv) > 2 else ""
+
+    if command == "delete-stations":
+        tokens = argv[2:]
+        if not tokens and not sys.stdin.isatty():
+            try:
+                raw = sys.stdin.read(131072)
+                if raw.strip():
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        tokens = [str(x) for x in parsed]
+                    elif isinstance(parsed, dict) and "stations" in parsed:
+                        tokens = [str(x) for x in parsed["stations"]]
+            except Exception:
+                pass
+        print_json(delete_stations(tokens))
+        return 0
 
     if command == "launch":
         print_json(launch_pithos())

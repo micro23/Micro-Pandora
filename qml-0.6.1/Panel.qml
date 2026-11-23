@@ -1251,6 +1251,7 @@ Item {
                 sourceComponent: PlayerSettings {
                   account: root.account
                   updater: root.updater
+                  service: root.service
                   foreground: root.foreground
                   muted: root.muted
                   accent: root.accent

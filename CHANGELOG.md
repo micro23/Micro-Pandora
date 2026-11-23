@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.2
+
+- Add a Playlist Manager to Settings: browse all Pandora stations with a search box, check the ones you want gone, and delete them in one step. QuickMix is locked and cannot be removed. The list refreshes automatically after deletion.
+- Fix Pithos Preferences and Stations dialogs being hidden by the Hyprland window rule. They now float on the active workspace instead of being sent to a special workspace.
+
 ## v0.6.1
 
 - Register the launcher only during setup or on request in Settings. Keep customized launcher entries and migrate the original stock entry during registration.
