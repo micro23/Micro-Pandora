@@ -22,6 +22,7 @@ Item {
   property int pinCursor: -1
   property string browseTarget: "nowplaying"
   property bool shortcutHelpOpen: false
+  property bool lyricsOn: false
   property bool localSidebarCollapsed: false
   readonly property bool sidebarCollapsed: service && service.stationSidebarCollapsed !== undefined
     ? service.stationSidebarCollapsed : localSidebarCollapsed
@@ -821,6 +822,46 @@ Item {
                 onChosen: function(mode) { root.selectVisualizer(mode) }
               }
 
+              // Lyrics toggle pill
+              Rectangle {
+                visible: root.currentTab === "nowplaying"
+                anchors.verticalCenter: parent.verticalCenter
+                width: lyricsLabel.implicitWidth + Style.space(22)
+                height: Style.space(26)
+                radius: height / 2
+                color: root.lyricsOn && (root.service && root.service.lyricState === "ready")
+                  ? Util.alpha(root.accent, 0.28)
+                  : Util.alpha(root.foreground, 0.09)
+                opacity: root.service && root.service.lyricState === "none" && !root.lyricsOn ? 0.4 : 1.0
+                Behavior on color { ColorAnimation { duration: 180 } }
+                Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                Text {
+                  id: lyricsLabel
+                  anchors.centerIn: parent
+                  textFormat: Text.PlainText
+                  text: root.service && root.service.lyricState === "loading" ? "♪ …" : "♪ Lyrics"
+                  color: root.lyricsOn && (root.service && root.service.lyricState === "ready")
+                    ? root.accent : root.foreground
+                  font.family: root.displayFamily
+                  font.pixelSize: Style.font.caption
+                  Behavior on color { ColorAnimation { duration: 180 } }
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.lyricsOn = !root.lyricsOn
+                }
+
+                PanelToolTip {
+                  visible: lyricsPillHover.containsMouse
+                  text: root.lyricsOn ? "Hide lyrics" : "Show lyrics"
+                  fontFamily: root.fontFamily
+                }
+                HoverHandler { id: lyricsPillHover }
+              }
+
               TransportButton {
                 glyphText: "󰍉"
                 visible: root.sidebarCollapsed
@@ -1121,12 +1162,36 @@ Item {
                   }
                 }
 
+                LyricsStage {
+                  id: lyricsStage
+                  anchors.left: parent.left
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.bottom: visualizer.top
+                  anchors.margins: Style.space(14)
+                  visible: root.lyricsOn && !!(root.service && root.service.lyricState === "ready")
+                  active: root.opened && root.currentTab === "nowplaying" && visible
+                  lines: root.service ? root.service.lyricLines : []
+                  position: root.service ? root.service.positionSeconds : 0
+                  playing: !!(root.service && root.service.playing)
+                  foreground: root.foreground
+                  accent: root.accent
+                  muted: root.muted
+                  fontFamily: root.displayFamily
+                  tickerHeight: Style.space(34)
+                  bigSize: Math.max(32, Math.min(76, Math.round(width / 11)))
+                  tickerY: heroStage.y + heroStage.height - y + Style.space(8)
+                  bigCenterY: (tickerY + tickerHeight + height) / 2
+                  z: 2
+                }
+
                 Visualizer {
                   id: visualizer
                   objectName: "playerVisualizer"
                   anchors.fill: parent
                   anchors.margins: Style.space(15)
-                  centerHeight: Math.round(parent.height * 0.23)
+                  centerHeight: Math.round(parent.height * (lyricsStage.visible ? 0.14 : 0.23))
+                  Behavior on centerHeight { NumberAnimation { duration: 300; easing.type: Easing.InOutQuad } }
                   protectedWidth: heroStage.compact ? nowPlayingHero.width + Style.space(28)
                     : Math.max(nowPlayingHero.coverSize + Style.space(56),
                         Math.min(nowPlayingMeta.width, heroTitle.implicitWidth + Style.space(64)))

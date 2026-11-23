@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.3
+
+- Synced lyrics in the full player: tap the **♪ Lyrics** pill in the header to turn them on. When the song has timed lyrics on lrclib.net, words slide along the top of the stage and the current word drops big into the middle, then floats back up when the next one comes. The visualizer stays but gives the lyrics room. Lyrics are only fetched while the full player is open.
+
 ## v0.6.2
 
 - Add a Playlist Manager to Settings: browse all Pandora stations with a search box, check the ones you want gone, and delete them in one step. QuickMix is locked and cannot be removed. The list refreshes automatically after deletion.
