@@ -141,13 +141,6 @@ def install_release(plugin, version):
                 details = result.stderr.splitlines()
                 raise ValueError(details[0] if details else "The installed plugin could not be safely replaced.")
 
-        cache_dir = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "quickshell" / "qmlcache"
-        if cache_dir.is_dir():
-            shutil.rmtree(cache_dir, ignore_errors=True)
-        legacy_dir = config / "omarchy" / "plugins" / "io.github.dankestrick.omapandora"
-        if legacy_dir.is_dir():
-            shutil.rmtree(legacy_dir, ignore_errors=True)
-
 
 def main():
     parser = argparse.ArgumentParser()

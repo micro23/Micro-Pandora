@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Setup and updates preserve existing OmaPandora installations and the shared Quickshell cache. Config Sync recovery keeps a backup of the previous Micro-Pandora copy.
+
 ## [0.7.3] - 2026-11-23
 
 - **Perfect Lyrics Centering**: The active singing words are centered precisely to the full window and album artwork (accounting for sidebar offset), fixing the issue where lyrics appeared off-center to the right.

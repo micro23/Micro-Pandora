@@ -28,7 +28,7 @@ See the [screenshot gallery](https://micro23.github.io/Micro-Pandora/) and the [
 
 ## Install
 
-On a current Omarchy desktop, extract the [latest release](https://github.com/micro23/Micro-Pandora/releases/latest) and run `./scripts/setup.sh` from the extracted folder. You can also install from GitHub:
+On a current Omarchy desktop, install from GitHub:
 
 ```bash
 git clone https://github.com/micro23/Micro-Pandora.git
@@ -37,6 +37,8 @@ cd Micro-Pandora
 ```
 
 Setup installs the missing packages, enables the player, and registers **Micro-Pandora** in the app launcher. It uses Omarchy’s package tools, which can prompt for your system password or AUR review.
+
+Use this checkout for setup if you downloaded the v0.7.3 archive. The setup and update scripts in that archive can delete an existing OmaPandora plugin folder and remove Quickshell’s shared QML cache.
 
 If you installed Micro-Pandora before v0.5.10, follow the [upgrade steps](docs/install.md#upgrade-from-v059-or-earlier) to switch to the new plugin ID and keep your pinned stations.
 

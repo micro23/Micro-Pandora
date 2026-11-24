@@ -302,9 +302,15 @@ printf '%s\n' "$*" >> "$MICRO_SETUP_QA/events"
                 tool = binary / name
                 tool.write_text(source)
                 tool.chmod(0o755)
+            legacy_file = root / "config/omarchy/plugins/io.github.dankestrick.omapandora/local.qml"
+            legacy_file.parent.mkdir(parents=True)
+            legacy_file.write_text("// user customization\n")
+            cache_file = root / "cache/quickshell/qmlcache/other-plugin"
+            cache_file.parent.mkdir(parents=True)
+            cache_file.write_text("shared cache entry")
             env = {**os.environ, "PATH": str(binary) + os.pathsep + os.environ["PATH"],
                    "MICRO_SETUP_QA": tmp, "XDG_DATA_HOME": str(root / "data"),
-                   "XDG_CONFIG_HOME": str(root / "config")}
+                   "XDG_CONFIG_HOME": str(root / "config"), "XDG_CACHE_HOME": str(root / "cache")}
             subprocess.run([ROOT / "scripts/setup.sh"], env=env, check=True, capture_output=True)
             self.assertEqual((root / "events").read_text().splitlines(), [
                 "plugin validate " + str(ROOT),
@@ -313,6 +319,8 @@ printf '%s\n' "$*" >> "$MICRO_SETUP_QA/events"
                 "shell rescanPlugins",
                 "plugin enable io.github.micro23.micro-pandora",
             ])
+            self.assertEqual(legacy_file.read_text(), "// user customization\n")
+            self.assertEqual(cache_file.read_text(), "shared cache entry")
             plugin = root / "config/omarchy/plugins/io.github.micro23.micro-pandora"
             manifest = json.loads((plugin / "manifest.json").read_text())
             ui = Path(manifest["entryPoints"]["panel"]).parent

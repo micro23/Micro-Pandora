@@ -46,12 +46,18 @@ class ReleaseUpdateTests(unittest.TestCase):
                 self.commit_version(repo, "0.9.4")
                 config = work / "config"
                 plugin = config / "omarchy" / "plugins" / updater.PLUGIN_ID
-                env = {"XDG_CONFIG_HOME": str(config)}
+                legacy_file = plugin.with_name("io.github.dankestrick.omapandora") / "local.qml"
+                legacy_file.parent.mkdir(parents=True)
+                legacy_file.write_text("// user customization\n")
+                cache = work / "cache"
+                cache_file = cache / "quickshell/qmlcache/other-plugin"
+                cache_file.parent.mkdir(parents=True)
+                cache_file.write_text("shared cache entry")
+                env = {"XDG_CONFIG_HOME": str(config), "XDG_CACHE_HOME": str(cache)}
                 with patch.dict(os.environ, env):
                     if copied:
                         subprocess.run([helpers / "install-copy", repo], check=True, capture_output=True)
                     else:
-                        plugin.parent.mkdir(parents=True)
                         updater.git(work, "clone", "-q", str(repo), str(plugin))
 
                     commit = self.commit_version(repo, "0.10.0")
@@ -75,6 +81,8 @@ class ReleaseUpdateTests(unittest.TestCase):
                         updater.install_release(plugin, "0.10.0")
 
                     self.assertEqual(updater.manifest_version(plugin), "0.10.0")
+                    self.assertEqual(legacy_file.read_text(), "// user customization\n")
+                    self.assertEqual(cache_file.read_text(), "shared cache entry")
                     self.assertTrue((plugin / "qml-0.10.0/Player.qml").exists())
                     self.assertFalse((plugin / "qml-0.9.4").exists())
                     self.assertEqual((plugin / ".git").is_dir(), not copied)

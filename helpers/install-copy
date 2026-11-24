@@ -105,13 +105,11 @@ if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   elif [ -f "$DEST/$MARKER" ]; then
     read_marker
     check_dest
-  elif [ ! -e "$DEST/$MARKER" ] && [[ "$RECOVER" =~ ^(--recover-synced-install|--clean)$ ]] &&
+  elif [ ! -e "$DEST/$MARKER" ] && [[ "$RECOVER" == --recover-synced-install ]] &&
        [ -f "$DEST/manifest.json" ] && [ ! -L "$DEST/manifest.json" ] &&
        jq -e --arg id "$ID" '.id == $id and (.version | strings | test("^[0-9]+[.][0-9]+[.][0-9]+$"))' \
          "$DEST/manifest.json" >/dev/null; then
-    if [[ "$RECOVER" == "--recover-synced-install" ]]; then
-      keep_previous=true
-    fi
+    keep_previous=true
   elif [ -e "$DEST/$MARKER" ]; then
     refuse "$DEST/$MARKER is not a regular file."
   else
@@ -150,37 +148,24 @@ if [ -d "$DEST" ]; then
   if $keep_previous; then
     echo "Kept the previous copy at $OLD/plugin"
     echo "Installed to $DEST"
-    rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/qmlcache"
     exit 0
   fi
-  if [[ "$RECOVER" == "--clean" ]]; then
-    rm -rf -- "$OLD"
-  else
-    # The old copy was checked above to hold only the listed, unchanged files.
-    # Remove exactly those, then the empty folders. Anything that appeared
-    # since the check makes rmdir fail, and the old copy is kept.
-    for rel in "${!listed[@]}"; do
-      rm -f -- "$OLD/plugin/$rel"
-    done
-    rm -f -- "$OLD/plugin/$MARKER"
-    for dir in "${!listed_dirs[@]}"; do
-      [ -d "$OLD/plugin/$dir" ] && { rmdir -- "$OLD/plugin/$dir" 2>/dev/null || true; }
-    done
-    if ! rmdir -- "$OLD/plugin" "$OLD" 2>/dev/null; then
-      echo "Kept the previous copy at $OLD/plugin: it had new files in it." >&2
-    fi
+  # The old copy was checked above to hold only the listed, unchanged files.
+  # Remove exactly those, then the empty folders. Anything that appeared
+  # since the check makes rmdir fail, and the old copy is kept.
+  for rel in "${!listed[@]}"; do
+    rm -f -- "$OLD/plugin/$rel"
+  done
+  rm -f -- "$OLD/plugin/$MARKER"
+  for dir in "${!listed_dirs[@]}"; do
+    [ -d "$OLD/plugin/$dir" ] && { rmdir -- "$OLD/plugin/$dir" 2>/dev/null || true; }
+  done
+  if ! rmdir -- "$OLD/plugin" "$OLD" 2>/dev/null; then
+    echo "Kept the previous copy at $OLD/plugin: it had new files in it." >&2
   fi
 else
   mv -T "$STAGE" "$DEST"
   trap - EXIT
-fi
-
-# Clean up quickshell QML cache so it stops loading cached bytecode
-rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/qmlcache"
-
-# Clean legacy Dankestrick plugin folder if present
-if [ -d "$PLUGINS/io.github.dankestrick.omapandora" ]; then
-  rm -rf "$PLUGINS/io.github.dankestrick.omapandora"
 fi
 
 echo "Installed to $DEST"

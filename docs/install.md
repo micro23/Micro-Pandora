@@ -121,10 +121,11 @@ The new player reads the same pinned-station file and Pithos credentials.
 ## App updates
 
 If your version has no **App updates** card, update it once to v0.6.0 or
-newer. For a copy installed with setup, extract the latest release and run
-`./scripts/setup.sh`. For a Git install already using the Micro-Pandora ID,
-run `omarchy plugin update io.github.micro23.micro-pandora`. Versions
-before v0.5.10 use the upgrade steps above.
+newer. For a copy installed with setup, clone Micro-Pandora and run
+`./scripts/setup.sh`. Use the same GitHub setup to replace an archived
+v0.7.3 copy before using in-app updates. For a Git install already using
+the Micro-Pandora ID, run `omarchy plugin update io.github.micro23.micro-pandora`.
+Versions before v0.5.10 use the upgrade steps above.
 
 Open **Settings → App updates** and choose **Check for updates**. If
 a newer stable GitHub release is available, choose **Update** to install
@@ -139,8 +140,7 @@ checkouts must fast-forward. Local edits in a Git checkout or in files
 managed by setup need to be set aside before the updater can replace them.
 
 If Config Sync restored an older copy without its install record and the
-in-app update fails, extract the latest release, open a terminal in the
-extracted folder, and run:
+in-app update fails, clone Micro-Pandora or update your checkout and run:
 
 ```bash
 ./scripts/install.sh --recover-synced-install
