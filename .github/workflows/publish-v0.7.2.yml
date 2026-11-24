@@ -1,0 +1,38 @@
+name: Publish Micro-Pandora v0.7.2
+on:
+  push:
+    branches: ["release/v0.7.2"]
+    paths: [".github/workflows/publish-v0.7.2.yml"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_COMMIT: d683329e9b3cb0ad09dc301acff4e2d790cb620f
+    steps:
+      - name: Publish v0.7.2
+        shell: bash
+        run: |
+          gh release create v0.7.2 --target "$RELEASE_COMMIT" --title "Micro-Pandora v0.7.2" --latest --notes-file - <<'NOTES'
+          ## Fixes
+          
+          - Synced lyrics show automatically in the full player when a match is available. Press **L** or click **♪ Lyrics** to toggle them.
+          - Lyrics lookups start as soon as the full player has track metadata. The player distinguishes a missing match from a failed lookup and ignores results for a track that is no longer playing.
+          - The new version-specific QML directory lets Omarchy load the updated player.
+          - In-app updates can preserve a full backup and recover copies that Config Sync restored without an install record.
+          
+          ## Updating
+          
+          Open **Micro-Pandora Settings → App updates**. If an older copy refuses to update because it lost its install record, extract this release and run:
+          
+          ```bash
+          ./scripts/install.sh --recover-synced-install
+          omarchy restart shell
+          ```
+          
+          The recovery installer prints the backup location.
+          NOTES
