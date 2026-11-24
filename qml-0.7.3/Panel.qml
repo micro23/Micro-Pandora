@@ -1235,6 +1235,8 @@ Item {
                   anchors.rightMargin: Style.space(15)
                   anchors.bottomMargin: Style.space(6)
                   height: Style.space(34)
+                  targetCenterX: Math.max(Style.space(40), Math.min(width - Style.space(40),
+                    Math.round((workspace.width / 2) - (sidebarSlot.width + Style.space(15)))))
                   visible: root.lyricsOn && !!(root.service && root.service.lyricState === "ready")
                   active: root.opened && root.currentTab === "nowplaying" && visible
                   timedLines: root.service && Array.isArray(root.service.lyricLines) ? root.service.lyricLines : []

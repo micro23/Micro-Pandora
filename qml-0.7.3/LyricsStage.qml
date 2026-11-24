@@ -13,6 +13,7 @@ Item {
   property color accent: "white"
   property color accentAlt: "white"
   property string fontFamily: ""
+  property real targetCenterX: width / 2
 
   implicitHeight: Math.max(Commons.Style.space(34), row.implicitHeight + Commons.Style.space(8))
   height: implicitHeight
@@ -92,7 +93,11 @@ Item {
     id: row
     spacing: Commons.Style.space(14)
     height: parent.height
-    x: stage.width / 2 - stage.slotCenter(Math.max(0, stage.current))
+    readonly property real activeOffset: {
+      var _w = childrenRect.width
+      return stage.slotCenter(Math.max(0, stage.current))
+    }
+    x: stage.targetCenterX - activeOffset
 
     Behavior on x {
       NumberAnimation { duration: Commons.Style.duration(180); easing.type: Easing.OutCubic }

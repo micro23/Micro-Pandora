@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.3] - 2026-11-23
+
+- **Perfect Lyrics Centering**: The active singing words are centered precisely to the full window and album artwork (accounting for sidebar offset), fixing the issue where lyrics appeared off-center to the right.
+- **Robust Lyrics Matching & State**:
+  - Lyrics now update immediately on every song change, clearing old lyrics and cancelling stale background requests so songs never keep previous lyrics.
+  - Added smart title cleaning in lyrics search (removes features, live tags, remasters, and explicit markers) so tracks that failed exact lookup find their lyrics.
+  - Gracefully handles instrumental and unlisted songs without getting stuck or repeatedly re-querying.
+- **Clean Installation & Cache Invalidation**:
+  - Setup and in-app updates now automatically purge Quickshell's compiled QML bytecode cache (`~/.cache/quickshell/qmlcache`), preventing machines from loading stale cached versions.
+  - Automatically cleans up legacy `io.github.dankestrick.omapandora` installations to prevent plugin and MPRIS conflicts.
+  - Added `--clean` option to installer and safe automatic recovery in setup scripts.
+
 ## [0.7.2] - 2026-11-23
 
 - Show synced lyrics automatically in the full player when a track has a match. Use **L** or **♪ Lyrics** to change the preference.

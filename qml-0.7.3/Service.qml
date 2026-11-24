@@ -102,25 +102,27 @@ Item {
   property string lyricState: "none"
   property string lyricsFetchedKey: ""
   property bool lyricsPanelVisible: false
-  readonly property string lyricsKey: lyricsPanelVisible && title !== ""
+  readonly property string lyricsKey: title !== ""
     ? artist + "\u0001" + title : ""
   onLyricsKeyChanged: {
-    if (lyricsKey && lyricsKey !== lyricsFetchedKey) {
+    if (lyricsKey !== lyricsFetchedKey) {
       lyricsFetchedKey = ""
       lyricLines = []
       lyricState = "loading"
+      if (lyricsProc.running) lyricsProc.running = false
     }
     lyricsDebounce.restart()
   }
 
   Timer {
     id: lyricsDebounce
-    interval: 400
+    interval: 350
     onTriggered: {
-      if (lyricsProc.running || !root.lyricsKey || root.lyricsKey === root.lyricsFetchedKey) return
+      if (!root.lyricsKey || root.lyricsKey === root.lyricsFetchedKey) return
+      if (lyricsProc.running) lyricsProc.running = false
       lyricsProc.trackKey = root.lyricsKey
       var len = root.lengthSeconds > 0 && root.lengthSeconds < 36000 ? Math.round(root.lengthSeconds) : 0
-      lyricsProc.command = ["timeout", "25", root.lyricsHelper, root.artist, root.title, root.album, String(len)]
+      lyricsProc.command = ["timeout", "15", root.lyricsHelper, root.artist, root.title, root.album, String(len)]
       lyricsProc.running = true
     }
   }
@@ -566,7 +568,9 @@ Item {
         lyricsDebounce.restart()
         return
       }
+      root.lyricsFetchedKey = trackKey
       if (code !== 0) {
+        root.lyricLines = []
         root.lyricState = "unavailable"
         console.warn("Micro-Pandora lyrics lookup failed:", lyricsErr.text.trim() || ("exit " + code))
         return
@@ -577,7 +581,6 @@ Item {
         var r = rows[i].match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/)
         if (r) out.push({ time: parseInt(r[1]) * 60 + parseFloat(r[2]), text: r[3].trim() })
       }
-      root.lyricsFetchedKey = trackKey
       root.lyricLines = out
       root.lyricState = out.length ? "ready" : "none"
     }

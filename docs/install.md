@@ -148,5 +148,5 @@ omarchy restart shell
 ```
 
 Recovery keeps the entire previous plugin directory in a backup and prints
-its location. With v0.7.2 or later installed, in-app updates can recover
+its location. With v0.7.3 or later installed, in-app updates can recover
 an unmarked copy automatically and keep the same kind of backup.

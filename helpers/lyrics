@@ -3,10 +3,10 @@
 # primary source Caelestia uses. Prints the LRC text, or nothing.
 # usage: lyrics <artist> <title> [album] [duration-seconds]
 set -uo pipefail
-# Network: two HTTPS requests to lrclib.net (only), 8 s each, bodies capped at
+# Network: HTTPS requests to lrclib.net (only), 8 s each, bodies capped at
 # 4 MB, no redirects. It sends the song's artist, title, album and length.
 uri() { jq -rn --arg s "$1" '$s|@uri'; }
-ua="OmaPandora (Omarchy plugin)"
+ua="Micro-Pandora (Omarchy plugin)"
 artist="${1:-}"; title="${2:-}"; album="${3:-}"; dur="${4:-}"
 [[ -n $title ]] || exit 0
 
@@ -18,21 +18,39 @@ q="artist_name=$(uri "$artist")&track_name=$(uri "$title")"
 # of timed lines, and prefer the closest duration among search results.
 good() { [[ $(grep -cE '^\[[0-9]+:[0-9]+' <<<"$1") -ge 6 ]]; }
 
-# The record lrclib matched: its lyrics, and which track it is (shown in
-# the full player's lyrics line).
-rec=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/get?$q" 2>/dev/null)
-s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec")
+# 1. Try exact get
+rec=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/get?$q" 2>/dev/null || true)
+s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec" || true)
+
+# 2. Try search by artist and full title
 if ! good "$s"; then
-  search=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/search?artist_name=$(uri "$artist")&track_name=$(uri "$title")") || exit 1
+  search=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/search?artist_name=$(uri "$artist")&track_name=$(uri "$title")" 2>/dev/null || true)
   rec=$(jq -c --argjson d "${dur:-0}" '
-          map(select((.syncedLyrics // "") | test("\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+")))
+          (if type == "array" then . else [] end)
+          | map(select((.syncedLyrics // "") | test("\\[[0-9]+:[0-9]+")))
           | sort_by(if $d > 0 then ((.duration // 0) - $d | fabs) else 0 end)
-          | .[0] // empty' <<<"$search") || exit 1
-  s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec")
+          | .[0] // empty' 2>/dev/null <<<"$search" || true)
+  s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec" || true)
 fi
+
+# 3. Try clean title search (strip feat., live, remaster, etc.)
+if ! good "$s"; then
+  clean_title=$(sed -E 's/\s*(\(feat\.|\(featuring|\(with|\(live|\(remaster|\(explicit|\(deluxe|\[feat\.|\[featuring|\[with|\[live|\[remaster|\[explicit|\[deluxe| - [0-9]{4} remaster| - remaster| - live).*//i' <<<"$title" | sed -E 's/\s+$//')
+  if [[ -n "$clean_title" && "$clean_title" != "$title" ]]; then
+    search=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/search?artist_name=$(uri "$artist")&track_name=$(uri "$clean_title")" 2>/dev/null || true)
+    rec=$(jq -c --argjson d "${dur:-0}" '
+            (if type == "array" then . else [] end)
+            | map(select((.syncedLyrics // "") | test("\\[[0-9]+:[0-9]+")))
+            | sort_by(if $d > 0 then ((.duration // 0) - $d | fabs) else 0 end)
+            | .[0] // empty' 2>/dev/null <<<"$search" || true)
+    s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec" || true)
+  fi
+fi
+
 if good "$s"; then
   # One header line the LRC parser skips: "#match<TAB>title<TAB>artist<TAB>album".
-  jq -r '"#match\t" + ([.trackName, .artistName, .albumName] | map(. // "" | gsub("[\t\n]"; " ")) | join("\t"))' 2>/dev/null <<<"$rec"
+  jq -r '"#match\t" + ([.trackName, .artistName, .albumName] | map(. // "" | gsub("[\t\n]"; " ")) | join("\t"))' 2>/dev/null <<<"$rec" || true
   # A song's lyrics are a few KB; never hand the shell more than 200 KB.
   printf '%s' "$s" | head -c 200000
 fi
+exit 0
