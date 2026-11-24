@@ -78,6 +78,7 @@ figcaption span { color: var(--muted); }
 .mini-player > a { width: min(100%, 27rem); justify-self: center; }
 .mini-player img { border-radius: .7rem; }
 .mini-player figcaption { padding: 0; }
+.playlist-manager { max-width: 467px; }
 .site-footer { border-top: 1px solid var(--line); justify-content: flex-start; }
 
 @media (max-width: 42rem) {
