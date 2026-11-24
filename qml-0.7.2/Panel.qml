@@ -22,7 +22,7 @@ Item {
   property int pinCursor: -1
   property string browseTarget: "nowplaying"
   property bool shortcutHelpOpen: false
-  property bool localLyricsOn: false
+  property bool localLyricsOn: true
   property bool lyricsOn: service && service.lyricsOn !== undefined ? service.lyricsOn : localLyricsOn
   property bool localSidebarCollapsed: false
   Connections { target: root.service; function onVisualizerModeChanged() { if (root.service && root.service.visualizerMode !== undefined) visualizer.selectMode(root.service.visualizerMode) } }
@@ -344,14 +344,23 @@ Item {
     service.setVolume(value)
   }
 
+  onServiceChanged: {
+    if (service && opened) service.lyricsPanelVisible = true
+  }
   onOpenedChanged: {
-    if (service) service.setUiVisible(root, opened)
+    if (service) {
+      service.lyricsPanelVisible = opened
+      service.setUiVisible(root, opened)
+    }
     updateAccountPage()
   }
   onCurrentTabChanged: updateAccountPage()
   Component.onDestruction: {
     if (account) account.settingsOpen = false
-    if (service) service.setUiVisible(root, false)
+    if (service) {
+      service.lyricsPanelVisible = false
+      service.setUiVisible(root, false)
+    }
   }
   Connections {
     target: root.account
@@ -856,7 +865,15 @@ Item {
                   id: lyricsLabel
                   anchors.centerIn: parent
                   textFormat: Text.PlainText
-                  text: root.service && root.service.lyricState === "loading" ? "♪ …" : "♪ Lyrics"
+                  text: {
+                    if (!root.lyricsOn || !root.service || !root.service.title) return "♪ Lyrics"
+                    switch (root.service.lyricState) {
+                    case "loading": return "♪ Loading lyrics…"
+                    case "unavailable": return "♪ Lyrics unavailable"
+                    case "none": return "♪ No synced lyrics"
+                    default: return "♪ Lyrics"
+                    }
+                  }
                   color: root.lyricsOn && (root.service && root.service.lyricState === "ready")
                     ? root.accent : root.foreground
                   font.family: root.displayFamily
@@ -1220,7 +1237,7 @@ Item {
                   height: Style.space(34)
                   visible: root.lyricsOn && !!(root.service && root.service.lyricState === "ready")
                   active: root.opened && root.currentTab === "nowplaying" && visible
-                  lines: root.service ? root.service.lyricLines : []
+                  timedLines: root.service && Array.isArray(root.service.lyricLines) ? root.service.lyricLines : []
                   position: root.service ? root.service.positionSeconds : 0
                   playing: !!(root.service && root.service.playing)
                   foreground: root.foreground

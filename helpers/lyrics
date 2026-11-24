@@ -23,11 +23,11 @@ good() { [[ $(grep -cE '^\[[0-9]+:[0-9]+' <<<"$1") -ge 6 ]]; }
 rec=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/get?$q" 2>/dev/null)
 s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec")
 if ! good "$s"; then
-  rec=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/search?artist_name=$(uri "$artist")&track_name=$(uri "$title")" 2>/dev/null \
-      | jq -c --argjson d "${dur:-0}" '
+  search=$(curl -fsS --proto =https --max-redirs 0 --max-time 8 --max-filesize 4000000 -A "$ua" "https://lrclib.net/api/search?artist_name=$(uri "$artist")&track_name=$(uri "$title")") || exit 1
+  rec=$(jq -c --argjson d "${dur:-0}" '
           map(select((.syncedLyrics // "") | test("\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+.*\\n.*\\[[0-9]+:[0-9]+")))
           | sort_by(if $d > 0 then ((.duration // 0) - $d | fabs) else 0 end)
-          | .[0] // empty' 2>/dev/null)
+          | .[0] // empty' <<<"$search") || exit 1
   s=$(jq -r '.syncedLyrics // empty' 2>/dev/null <<<"$rec")
 fi
 if good "$s"; then

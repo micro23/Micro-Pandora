@@ -46,7 +46,7 @@ Item {
     category: "Player"
     property bool sidebarCollapsed: false
     property int visualizerMode: 0
-    property bool lyricsOn: false
+    property bool lyricsOn: true
   }
 
   property string preferredScreenName: ""
@@ -99,21 +99,26 @@ Item {
   // ── Synced lyrics from lrclib.net ────────────
   readonly property string lyricsHelper: Api.helperPath(Qt.resolvedUrl("../helpers/lyrics"))
   property var lyricLines: []
-  property string lyricState: "none"   // "loading", "ready" or "none"
+  property string lyricState: "none"
   property string lyricsFetchedKey: ""
-  readonly property string lyricsKey: uiVisible && displayMode === "full" && connected && title !== ""
+  property bool lyricsPanelVisible: false
+  readonly property string lyricsKey: lyricsPanelVisible && title !== ""
     ? artist + "\u0001" + title : ""
-  onLyricsKeyChanged: lyricsDebounce.restart()
+  onLyricsKeyChanged: {
+    if (lyricsKey && lyricsKey !== lyricsFetchedKey) {
+      lyricsFetchedKey = ""
+      lyricLines = []
+      lyricState = "loading"
+    }
+    lyricsDebounce.restart()
+  }
 
   Timer {
     id: lyricsDebounce
     interval: 400
     onTriggered: {
-      if (!root.lyricsKey || root.lyricsKey === root.lyricsFetchedKey) return
-      root.lyricsFetchedKey = root.lyricsKey
-      root.lyricLines = []
-      root.lyricState = "loading"
-      lyricsProc.running = false
+      if (lyricsProc.running || !root.lyricsKey || root.lyricsKey === root.lyricsFetchedKey) return
+      lyricsProc.trackKey = root.lyricsKey
       var len = root.lengthSeconds > 0 && root.lengthSeconds < 36000 ? Math.round(root.lengthSeconds) : 0
       lyricsProc.command = ["timeout", "25", root.lyricsHelper, root.artist, root.title, root.album, String(len)]
       lyricsProc.running = true
@@ -553,17 +558,28 @@ Item {
 
   Process {
     id: lyricsProc
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var out = []
-        var rows = String(text).split("\n")
-        for (var i = 0; i < rows.length; i++) {
-          var r = rows[i].match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/)
-          if (r) out.push({ time: parseInt(r[1]) * 60 + parseFloat(r[2]), text: r[3].trim() })
-        }
-        root.lyricLines = out
-        root.lyricState = out.length ? "ready" : "none"
+    property string trackKey: ""
+    stdout: StdioCollector { id: lyricsOut; waitForEnd: true }
+    stderr: StdioCollector { id: lyricsErr; waitForEnd: true }
+    onExited: function(code) {
+      if (trackKey !== root.lyricsKey) {
+        lyricsDebounce.restart()
+        return
       }
+      if (code !== 0) {
+        root.lyricState = "unavailable"
+        console.warn("Micro-Pandora lyrics lookup failed:", lyricsErr.text.trim() || ("exit " + code))
+        return
+      }
+      var out = []
+      var rows = lyricsOut.text.split("\n")
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i].match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/)
+        if (r) out.push({ time: parseInt(r[1]) * 60 + parseFloat(r[2]), text: r[3].trim() })
+      }
+      root.lyricsFetchedKey = trackKey
+      root.lyricLines = out
+      root.lyricState = out.length ? "ready" : "none"
     }
   }
 

@@ -5,7 +5,7 @@ import qs.Commons as Commons
 Item {
   id: stage
 
-  property var lines: []              // [{ time, text }] from the service
+  property var timedLines: []              // [{ time, text }] from the service
   property real position: 0           // play position the service reports, seconds
   property bool playing: false
   property bool active: visible
@@ -26,12 +26,16 @@ Item {
     var n = (w.replace(/e$/, "").match(/[aeiouy]+/g) || []).length
     return Math.max(1, n)
   }
-  readonly property var words: {
+  property var words: []
+  onTimedLinesChanged: rebuildWords()
+
+  function rebuildWords() {
+    var entries = timedLines || []
     var out = []
-    for (var i = 0; i < lines.length; i++) {
-      var t = lines[i].time
-      var end = i + 1 < lines.length ? lines[i + 1].time : t + 4
-      var parts = String(lines[i].text || "").split(/\s+/).filter(function(w) { return w !== "" })
+    for (var i = 0; i < entries.length; i++) {
+      var t = entries[i].time
+      var end = i + 1 < entries.length ? entries[i + 1].time : t + 4
+      var parts = String(entries[i].text || "").split(/\s+/).filter(function(w) { return w !== "" })
       if (!parts.length) { out.push({ text: "♪", time: t, line: i }); continue }
       // Spread the words over the whole line, by syllables (singers hold long
       // words longer). A line followed by a long instrumental gap stops after
@@ -46,7 +50,7 @@ Item {
         at += span * syl[k] / total
       }
     }
-    return out
+    words = out
   }
 
   // Smooth position between the service's reports.

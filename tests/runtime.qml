@@ -235,11 +235,13 @@ ShellRoot {
         var visualizer = root.findVisualChild(stage.parent, "playerVisualizer")
         root.testedService.lyricLines = [{ time: 0, text: "First second third" }]
         root.testedService.lyricState = "ready"
-        root.testedPanel.lyricsOn = true
+        root.check(root.testedPanel.lyricsOn && root.testedService.lyricsKey !== "",
+                   "the open full player requests lyrics and shows them by default")
         for (var lyricMode of [0, 1, 2, 3]) {
           root.testedPanel.selectVisualizer(lyricMode)
           root.check(lyrics.visible && visualizer.lyricsBelow && visualizer.clip
-                     && Math.abs(lyrics.y - visualizer.y - visualizer.height) < 1
+                     && Math.abs(lyrics.y - visualizer.y - visualizer.height
+                                 - visualizer.anchors.bottomMargin) < 1
                      && lyrics.y + lyrics.height < stage.height,
                      "the lyric row fits directly below the visualizer in every mode")
         }
@@ -252,7 +254,7 @@ ShellRoot {
         root.check(!firstWord.singing && secondWord.singing && secondWord.y === wordY
                    && secondWord.y >= 0 && secondWord.y + secondWord.height <= lyrics.height,
                    "the active highlight moves between words on the same visible line")
-        root.testedPanel.lyricsOn = false
+        root.testedService.lyricsOn = false
         root.check(!visualizer.lyricsBelow && !visualizer.clip, "hiding lyrics restores the visualizer")
         root.testedService.applyStatus({ connected: true, artUrl: "" })
         root.check(root.testedBackdrop.silhouetteReady && art.blend === 1,

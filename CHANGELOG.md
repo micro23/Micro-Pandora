@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2] - 2026-11-23
+
+- Show synced lyrics automatically in the full player when a track has a match. Use **L** or **♪ Lyrics** to change the preference.
+- Start lyrics lookup when the full player has track metadata, even while playback status is still catching up. Distinguish a missing match from a failed lookup.
+- Load the updated QML from a version-specific path so Omarchy picks up the new player.
+- Recover Config Sync copies with missing install records and keep the previous plugin files in a backup.
+
 ## [0.7.1] - 2026-11-23
 
 ### Added

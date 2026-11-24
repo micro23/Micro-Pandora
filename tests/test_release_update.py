@@ -69,12 +69,21 @@ class ReleaseUpdateTests(unittest.TestCase):
                         self.assertIn("user edit", modified.read_text())
 
                         modified.write_text(original)
+                        if copied:
+                            (plugin / ".omapandora-dev-install").unlink()
+                            modified.write_text(original + "// synced customization\n")
                         updater.install_release(plugin, "0.10.0")
 
                     self.assertEqual(updater.manifest_version(plugin), "0.10.0")
                     self.assertTrue((plugin / "qml-0.10.0/Player.qml").exists())
                     self.assertFalse((plugin / "qml-0.9.4").exists())
                     self.assertEqual((plugin / ".git").is_dir(), not copied)
+                    if copied:
+                        backups = list(plugin.parent.glob(f".{updater.PLUGIN_ID}.old.*/plugin"))
+                        self.assertEqual(len(backups), 1)
+                        self.assertIn("synced customization",
+                                      (backups[0] / "qml-0.9.4/Player.qml").read_text())
+                        self.assertTrue((plugin / ".omapandora-dev-install").is_file())
 
     def commit_version(self, repo, version):
         existing = next(repo.glob("qml-*"), None)

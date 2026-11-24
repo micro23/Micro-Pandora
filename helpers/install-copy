@@ -2,19 +2,19 @@
 # Developer install: copy this repo's plugin payload into the live Omarchy
 # plugin folder. Does not touch ~/.config/omarchy/omapandora-pins.json.
 #
-# It only replaces a folder that this script created and that still holds
-# exactly what it put there. The marker .omapandora-dev-install lists every
+# A normal install replaces only an unchanged managed copy.
+# The marker .omapandora-dev-install lists every
 # installed file with its SHA-256. If the folder has a file that is not on
 # that list, or a listed file was changed, it stops and changes nothing.
-# A folder from `omarchy plugin add` (a git checkout) or anything else is
-# left alone; remove it first with
-# `omarchy plugin remove io.github.micro23.micro-pandora`.
+# Recovery keeps an unmarked Micro-Pandora copy intact in a backup.
+# Git checkouts are managed by Omarchy and are never replaced here.
 set -euo pipefail
 
 ID="io.github.micro23.micro-pandora"
 MARKER=".omapandora-dev-install"
 ROOT="$(realpath -- "$1")"
 EXPECTED_VERSION="${2:-}"
+RECOVER="${3:-}"
 UI="$(dirname "$(jq -er '.entryPoints.panel' "$ROOT/manifest.json")")"
 UI_PATTERN='qml(-[0-9]+(\.[0-9]+){2})?'
 if [[ ! "$UI" =~ ^${UI_PATTERN}$ ]]; then
@@ -35,6 +35,7 @@ refuse() {
 
 # Files the marker says this script installed: listed[relative path]=sha256.
 declare -A listed=() listed_dirs=()
+keep_previous=false
 
 read_marker() {
   local line hash rel
@@ -88,21 +89,35 @@ fi
 # Serialize validation and replacement with other Micro-Pandora installers.
 exec 9<"$PLUGINS"
 flock -w 10 9 || refuse "Another plugin install or update is running."
-if [[ -n "$EXPECTED_VERSION" ]] &&
-  [[ "$(jq -r '.version' "$DEST/manifest.json")" != "$EXPECTED_VERSION" ]]; then
-  refuse "The installed version changed. Check for updates again."
-fi
 
 if [ -e "$DEST" ] || [ -L "$DEST" ]; then
   [ -L "$DEST" ] && refuse "$DEST is a symlink."
   [ -d "$DEST" ] || refuse "$DEST is not a folder."
   [ -O "$DEST" ] || refuse "$DEST is not owned by you."
-  [ -e "$DEST/.git" ] && refuse "$DEST is a git checkout (installed by omarchy plugin add)."
-  if [ ! -f "$DEST/$MARKER" ] || [ -L "$DEST/$MARKER" ]; then
-    refuse "$DEST was not created by scripts/install.sh."
+  if [[ -n "$EXPECTED_VERSION" ]] &&
+     { [ ! -f "$DEST/manifest.json" ] || [ -L "$DEST/manifest.json" ] ||
+       [[ "$(jq -r '.version' "$DEST/manifest.json")" != "$EXPECTED_VERSION" ]]; }; then
+    refuse "The installed version changed. Check for updates again."
   fi
-  read_marker
-  check_dest
+  { [ -e "$DEST/.git" ] || [ -L "$DEST/.git" ]; } && refuse "$DEST is a git checkout (installed by omarchy plugin add)."
+  if [ -L "$DEST/$MARKER" ]; then
+    refuse "$DEST/$MARKER is a symlink."
+  elif [ -f "$DEST/$MARKER" ]; then
+    read_marker
+    check_dest
+  elif [ ! -e "$DEST/$MARKER" ] && [[ "$RECOVER" == --recover-synced-install ]] &&
+       [ -f "$DEST/manifest.json" ] && [ ! -L "$DEST/manifest.json" ] &&
+       jq -e --arg id "$ID" '.id == $id and (.version | strings | test("^[0-9]+[.][0-9]+[.][0-9]+$"))' \
+         "$DEST/manifest.json" >/dev/null; then
+    keep_previous=true
+  elif [ -e "$DEST/$MARKER" ]; then
+    refuse "$DEST/$MARKER is not a regular file."
+  else
+    refuse "The install record is missing. If Config Sync restored this copy," \
+      "run ./scripts/install.sh --recover-synced-install from the latest release."
+  fi
+elif [[ -n "$EXPECTED_VERSION" ]]; then
+  refuse "The installed version changed. Check for updates again."
 fi
 
 # Build the new copy next to the old one, then swap it in, so a failed
@@ -130,6 +145,11 @@ if [ -d "$DEST" ]; then
     exit 1
   fi
   trap - EXIT
+  if $keep_previous; then
+    echo "Kept the previous copy at $OLD/plugin"
+    echo "Installed to $DEST"
+    exit 0
+  fi
   # The old copy was checked above to hold only the listed, unchanged files.
   # Remove exactly those, then the empty folders. Anything that appeared
   # since the check makes rmdir fail, and the old copy is kept.

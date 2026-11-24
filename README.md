@@ -51,7 +51,7 @@ Run `omarchy plugin remove io.github.micro23.micro-pandora` to remove the plugin
 - Pithos runs on a hidden workspace by default. **Settings → Show Pithos window** opens the native interface when you need it.
 - Select a station in the sidebar. Use the pin next to the station name (or press **P**) to keep it in **My list**. Press **Ctrl+B** or click the sidebar icon to hide or show the station column.
 - The full player has play, pause, skip, thumbs up/down, "tired of song", volume, and mute controls, all centered symmetrically under the artwork. Progress is read-only because Pandora doesn’t offer seeking here.
-- Press **L** or click **♪ Lyrics** in the header to display live synchronized, scrolling lyrics. When lyrics are turned off, the audio visualizer smoothly expands to claim the full stage.
+- The full player automatically shows synchronized lyrics when they are available. Press **L** or click **♪ Lyrics** to toggle them. When lyrics are turned off, the audio visualizer smoothly expands to claim the full stage.
 - The mini player on the Omarchy bar gives you a quick centered popup card with track details, album art, station badge, volume, and thumbs/tired controls.
 - Track and album titles automatically hide `(Explicit)` tags for a cleaner look.
 - Choose **Spectrum**, **Mirror**, **Orbit**, or **Off** in the header. Press **V** to cycle through all four. Pandora keeps playing in **Off** mode.

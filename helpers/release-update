@@ -134,11 +134,12 @@ def install_release(plugin, version):
                 os.close(lock)
         else:
             result = subprocess.run(
-                [str(plugin / "helpers/install-copy"), str(staging), current],
+                [str(plugin / "helpers/install-copy"), str(staging), current, "--recover-synced-install"],
                 capture_output=True, text=True,
             )
             if result.returncode:
-                raise ValueError("The installed plugin could not be safely replaced. Check for local changes.")
+                details = result.stderr.splitlines()
+                raise ValueError(details[0] if details else "The installed plugin could not be safely replaced.")
 
 
 def main():

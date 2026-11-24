@@ -137,3 +137,16 @@ The updater supports copies created with `scripts/setup.sh` and clean
 Git checkouts installed through `omarchy plugin add`. Updates to Git
 checkouts must fast-forward. Local edits in a Git checkout or in files
 managed by setup need to be set aside before the updater can replace them.
+
+If Config Sync restored an older copy without its install record and the
+in-app update fails, extract the latest release, open a terminal in the
+extracted folder, and run:
+
+```bash
+./scripts/install.sh --recover-synced-install
+omarchy restart shell
+```
+
+Recovery keeps the entire previous plugin directory in a backup and prints
+its location. With v0.7.2 or later installed, in-app updates can recover
+an unmarked copy automatically and keep the same kind of backup.
